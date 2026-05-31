@@ -15,7 +15,7 @@ Searches across workflow definitions and returns matching blocks with their team
 | Block Type | `task`, `advancedtask`, or `update` |
 | Team Name | Team assigned to the block |
 
-Filters are optional — leaving any field blank searches across all values. When results are returned, an **Export CSV** button appears in the results header to download the current rows as a `.csv` file.
+Filters are optional — leaving any field blank searches across all values. When results are returned, **Copy to Clipboard** and **Export CSV** buttons appear in the results header. The clipboard copy uses tab-separated values so it pastes directly into Excel with columns aligned.
 
 ## Setup
 

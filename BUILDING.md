@@ -359,7 +359,35 @@ function exportCsv() {
 - `escape()` wraps every value in double quotes and escapes any internal quotes (`"` → `""`), handling commas and special characters in workflow names safely.
 - `\r\n` line endings are used — required by the CSV spec and expected by Excel.
 - `URL.createObjectURL` / `revokeObjectURL` creates a temporary download link and immediately cleans it up.
-- The button only renders when `rows.length > 0`, so it never appears on an empty result set.
+- Both buttons only render when `rows.length > 0`, so they never appear on an empty result set.
+
+### Copy to Clipboard
+
+The **Copy to Clipboard** button copies results as tab-separated values (TSV), which pastes into Excel with columns already aligned — no import wizard needed.
+
+```tsx
+const [copied, setCopied] = useState(false);
+
+function copyToClipboard() {
+  const headers = ["Workflow Name", "Version", "Offering Status", "Block Title", "Block Type", "Team Name"];
+  const lines = [
+    headers.join("\t"),
+    ...rows.map((r) =>
+      [r.WorkflowName, r.DefVersion, r.RequestOfferingStatus, r.BlockTitle, r.BlockType, r.TeamName].join("\t")
+    ),
+  ];
+  navigator.clipboard.writeText(lines.join("\n")).then(() => {
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  });
+}
+```
+
+The button label switches to **"Copied!"** for 2 seconds via the `copied` state, then resets — giving the user clear confirmation without a modal or toast.
+
+**Key points:**
+- TSV (tab-separated) rather than CSV is used here because `navigator.clipboard.writeText` writes plain text. Tabs are the delimiter Excel recognises when pasting plain text into a sheet.
+- `setTimeout` resets `copied` after 2 seconds so the button is ready to use again.
 
 ---
 
