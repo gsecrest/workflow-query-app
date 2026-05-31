@@ -330,6 +330,37 @@ function BlockTypeBadge({ type }: { type: string }) {
 
 Offering Status renders as plain text (no badge) since the values vary and don't map cleanly to a fixed color set.
 
+### CSV export
+
+An **Export CSV** button appears in the results header whenever there are rows. It is entirely client-side — no package needed.
+
+```tsx
+function exportCsv() {
+  const headers = ["Workflow Name", "Version", "Offering Status", "Block Title", "Block Type", "Team Name"];
+  const escape = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const lines = [
+    headers.map(escape).join(","),
+    ...rows.map((r) =>
+      [r.WorkflowName, r.DefVersion, r.RequestOfferingStatus, r.BlockTitle, r.BlockType, r.TeamName]
+        .map(escape).join(",")
+    ),
+  ];
+  const blob = new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "workflow-results.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+```
+
+**Key points:**
+- `escape()` wraps every value in double quotes and escapes any internal quotes (`"` → `""`), handling commas and special characters in workflow names safely.
+- `\r\n` line endings are used — required by the CSV spec and expected by Excel.
+- `URL.createObjectURL` / `revokeObjectURL` creates a temporary download link and immediately cleans it up.
+- The button only renders when `rows.length > 0`, so it never appears on an empty result set.
+
 ---
 
 ## Step 9: Run and verify
