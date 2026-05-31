@@ -256,6 +256,7 @@ const [rows, setRows]                 = useState<Row[]>([]);
 const [loading, setLoading]           = useState(false);
 const [hasQueried, setHasQueried]     = useState(false);
 const [error, setError]               = useState("");
+const [copied, setCopied]             = useState(false);
 ```
 
 - `hasQueried` prevents showing the results panel before the first query runs.
@@ -311,6 +312,19 @@ The results section only renders when `hasQueried && !error`. The "No results fo
     )}
   </div>
 )}
+```
+
+### Input styling
+
+Filter labels use `text-gray-800` and all inputs/selects use `text-gray-900` for readable contrast against the white card background. The Team Name select also has `disabled:text-gray-400` so it visually dims while teams are loading.
+
+```tsx
+<label className="block text-xs font-semibold text-gray-800 uppercase tracking-wide mb-1">
+  Workflow Name
+</label>
+<input
+  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 ..."
+/>
 ```
 
 ### Block type badge helper
