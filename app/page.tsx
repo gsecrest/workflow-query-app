@@ -35,6 +35,21 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [hasQueried, setHasQueried] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  function copyToClipboard() {
+    const headers = ["Workflow Name", "Version", "Offering Status", "Block Title", "Block Type", "Team Name"];
+    const lines = [
+      headers.join("\t"),
+      ...rows.map((r) =>
+        [r.WorkflowName, r.DefVersion, r.RequestOfferingStatus, r.BlockTitle, r.BlockType, r.TeamName].join("\t")
+      ),
+    ];
+    navigator.clipboard.writeText(lines.join("\n")).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
 
   function exportCsv() {
     const headers = ["Workflow Name", "Version", "Offering Status", "Block Title", "Block Type", "Team Name"];
@@ -202,12 +217,20 @@ export default function Home() {
                   {rows.length} row{rows.length !== 1 ? "s" : ""}
                 </span>
                 {rows.length > 0 && (
-                  <button
-                    onClick={exportCsv}
-                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
-                  >
-                    Export CSV
-                  </button>
+                  <>
+                    <button
+                      onClick={copyToClipboard}
+                      className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                    >
+                      {copied ? "Copied!" : "Copy to Clipboard"}
+                    </button>
+                    <button
+                      onClick={exportCsv}
+                      className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                    >
+                      Export CSV
+                    </button>
+                  </>
                 )}
               </div>
             </div>
