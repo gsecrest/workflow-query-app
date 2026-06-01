@@ -61,6 +61,26 @@ pm2 restart workflow-query-app          # restart the app
 pm2 stop workflow-query-app             # stop the app
 ```
 
+## Uninstalling
+
+To fully remove the app and stop it from running on startup:
+
+```bash
+# 1. Stop and remove the PM2 process
+pm2 delete workflow-query-app
+
+# 2. Remove the Windows startup entry
+npx pm2-windows-startup uninstall
+
+# 3. Save the empty PM2 process list
+pm2 save
+
+# 4. (Optional) Uninstall PM2 and the startup manager globally
+npm uninstall -g pm2 pm2-windows-startup
+```
+
+Then delete the app folder from your machine. The `.env.local` file (with your DB credentials) is inside that folder and will be removed along with it.
+
 ## API Routes
 
 | Route | Method | Description |
