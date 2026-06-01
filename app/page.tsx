@@ -17,8 +17,8 @@ const STATUSES = ["", "Published", "Design"];
 export default function Home() {
   const [workflowName, setWorkflowName] = useState("");
   const [blockType, setBlockType] = useState("");
-  const [teamName, setTeamName] = useState("Risk Management Support");
-  const [status, setStatus] = useState("Published");
+  const [teamName, setTeamName] = useState("");
+  const [status, setStatus] = useState("");
   const [teams, setTeams] = useState<string[]>([]);
   const [teamsLoading, setTeamsLoading] = useState(true);
 
