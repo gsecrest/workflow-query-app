@@ -127,6 +127,7 @@ Then delete the app folder from your machine. The `.env.local` file (with your D
 |---|---|---|
 | `/api/query` | POST | Run the workflow block query with filters |
 | `/api/teams` | GET | Fetch active service desk teams for the Team Name dropdown |
+| `/api/export/workflow-results.csv` | GET | Download results as a CSV file |
 
 ### POST `/api/query`
 
@@ -164,8 +165,11 @@ app/
   layout.tsx        — Root layout
   globals.css       — Global styles
   api/
-    query/route.ts  — Workflow block query endpoint
-    teams/route.ts  — Active teams endpoint
+    query/route.ts           — Workflow block query endpoint
+    teams/route.ts           — Active teams endpoint
+    export/
+      workflow-results.csv/
+        route.ts             — CSV export endpoint
 lib/
   db-password.ts    — DPAPI password decryption utility
 ```
@@ -191,6 +195,16 @@ pm2 delete workflow-query-app
 pm2 start ecosystem.config.js
 pm2 save
 ```
+
+### Export CSV does nothing in Chrome
+
+If Chrome is managed by your organization (you'll see "Your browser is managed by your organization" in Chrome settings), it may block redirects from localhost. Fix:
+
+1. In Chrome, go to **Settings → Privacy and security → Site settings → Pop-ups and redirects**
+2. Under **Allowed to send pop-ups and use redirects**, click **Add**
+3. Enter `http://localhost:3000` and click **Add**
+
+Export CSV will work normally after this. Other browsers (Edge, Firefox) are not affected.
 
 ### App starts but team dropdown is empty or queries fail
 
