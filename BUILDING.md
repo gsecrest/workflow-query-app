@@ -54,7 +54,9 @@ DB_PASSWORD=your-password
 DB_PORT=1433
 ```
 
-These variables are read at runtime by the API routes using `process.env`.
+For production deployments on Windows, use `DB_PASSWORD_ENCRYPTED` instead of `DB_PASSWORD` — see the DPAPI utility step below.
+
+These variables are read at runtime by the API routes via `lib/db-password.ts`.
 
 ---
 
@@ -132,19 +134,56 @@ body {
 
 ---
 
-## Step 6: Build the teams API route
+## Step 6: Create the DPAPI password utility
+
+Create `lib/db-password.ts`. This utility decrypts the database password at startup using Windows DPAPI when `DB_PASSWORD_ENCRYPTED` is set, and falls back to the plaintext `DB_PASSWORD` for local dev.
+
+```ts
+import { spawnSync } from "child_process";
+
+function resolveDbPassword(): string {
+  const encrypted = process.env.DB_PASSWORD_ENCRYPTED;
+  if (encrypted) {
+    const result = spawnSync(
+      "powershell.exe",
+      [
+        "-NonInteractive",
+        "-Command",
+        "Add-Type -AssemblyName System.Security; [System.Text.Encoding]::UTF8.GetString([System.Security.Cryptography.ProtectedData]::Unprotect([System.Convert]::FromBase64String($env:ENCRYPTED_PW), $null, [System.Security.Cryptography.DataProtectionScope]::CurrentUser))",
+      ],
+      { env: { ...process.env, ENCRYPTED_PW: encrypted }, encoding: "utf8" }
+    );
+    if (result.status === 0) {
+      return result.stdout.trim();
+    }
+  }
+  return process.env.DB_PASSWORD ?? "";
+}
+
+export const dbPassword = resolveDbPassword();
+```
+
+**Key points:**
+- `spawnSync` is used instead of `execSync` so the encrypted value is passed as an environment variable (`$env:ENCRYPTED_PW`) rather than interpolated into the command string — this avoids shell escaping issues with `+` and `/` characters in base64.
+- `DataProtectionScope.CurrentUser` ties the encryption to the Windows user account that encrypted it. The same account must run the app.
+- The function runs once at module load time; `dbPassword` is a stable export used by both API routes.
+
+---
+
+## Step 7: Build the teams API route
 
 Create `app/api/teams/route.ts`. This endpoint returns all active service desk teams for the dropdown.
 
 ```ts
 import { NextResponse } from "next/server";
 import sql from "mssql";
+import { dbPassword } from "@/lib/db-password";
 
 const config: sql.config = {
   server: process.env.DB_SERVER!,
   database: process.env.DB_DATABASE!,
   user: process.env.DB_USER!,
-  password: process.env.DB_PASSWORD!,
+  password: dbPassword,
   port: parseInt(process.env.DB_PORT || "1433"),
   options: {
     encrypt: true,
@@ -175,21 +214,32 @@ export async function GET() {
 ```
 
 **Key points:**
-- The `config` object reads credentials from environment variables. The `!` asserts the value is non-null — make sure `.env.local` is populated before running.
+- `dbPassword` from `lib/db-password.ts` handles both plaintext and DPAPI-encrypted passwords transparently.
 - `trustServerCertificate: true` is needed for self-signed certs common in internal SQL Server instances.
 - Always call `pool.close()` after the query to release the connection.
 
 ---
 
-## Step 7: Build the query API route
+## Step 8: Build the query API route
 
 Create `app/api/query/route.ts`. This is the main search endpoint — it accepts filter parameters and runs a multi-step SQL query that shreds workflow XML to extract block and team data.
 
 ```ts
 import { NextRequest, NextResponse } from "next/server";
 import sql from "mssql";
+import { dbPassword } from "@/lib/db-password";
 
-const config: sql.config = { /* same as above */ };
+const config: sql.config = {
+  server: process.env.DB_SERVER!,
+  database: process.env.DB_DATABASE!,
+  user: process.env.DB_USER!,
+  password: dbPassword,
+  port: parseInt(process.env.DB_PORT || "1433"),
+  options: {
+    encrypt: true,
+    trustServerCertificate: true,
+  },
+};
 
 export async function POST(req: NextRequest) {
   const { workflowName, blockType, teamName, status } = await req.json();
@@ -240,7 +290,7 @@ The final `SELECT` UNIONs `#Blocks` (looking up team from `frs_def_quick_actions
 
 ---
 
-## Step 8: Build the UI page
+## Step 9: Build the UI page
 
 Replace `app/page.tsx` with the filter form and results table. The component is a single `"use client"` page with four state-driven filters.
 
@@ -249,8 +299,8 @@ Replace `app/page.tsx` with the filter form and results table. The component is 
 ```tsx
 const [workflowName, setWorkflowName] = useState("");
 const [blockType, setBlockType]       = useState("");
-const [teamName, setTeamName]         = useState("Risk Management Support");
-const [status, setStatus]             = useState("Published");
+const [teamName, setTeamName]         = useState("");
+const [status, setStatus]             = useState("");
 const [teams, setTeams]               = useState<string[]>([]);
 const [rows, setRows]                 = useState<Row[]>([]);
 const [loading, setLoading]           = useState(false);
@@ -259,6 +309,7 @@ const [error, setError]               = useState("");
 const [copied, setCopied]             = useState(false);
 ```
 
+- All filters default to `""` (empty string), which the API treats as "match all".
 - `hasQueried` prevents showing the results panel before the first query runs.
 - `teams` is populated on mount by calling `/api/teams`.
 
@@ -405,13 +456,13 @@ The button label switches to **"Copied!"** for 2 seconds via the `copied` state,
 
 ---
 
-## Step 9: Run and verify
+## Step 10: Run and verify
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The Team Name dropdown should populate immediately. Click **Run Query** with default filters to confirm the database connection works.
+Open [http://localhost:3000](http://localhost:3000). The Team Name dropdown should populate immediately. Click **Run Query** with all filters blank to confirm the database connection works.
 
 **Common issues:**
 
@@ -421,6 +472,7 @@ Open [http://localhost:3000](http://localhost:3000). The Team Name dropdown shou
 | `encrypt` / SSL errors | Set `trustServerCertificate: true` in the mssql config |
 | Empty results for valid filters | Workflow names in DB use a different casing or suffix — check the `LIKE '%form'` filter in the SQL |
 | `No results found` flash on load | Missing `!loading` guard on the empty-state message |
+| `Login failed for user` with DPAPI | Key named `DB_PASSWORD` instead of `DB_PASSWORD_ENCRYPTED` in `.env.local` |
 
 ---
 
@@ -429,6 +481,8 @@ Open [http://localhost:3000](http://localhost:3000). The Team Name dropdown shou
 ```
 workflow-query-app/
 ├── .env.local                  ← DB credentials (not committed)
+├── lib/
+│   └── db-password.ts          ← DPAPI password decryption utility
 ├── app/
 │   ├── layout.tsx              ← Root layout, fonts
 │   ├── globals.css             ← Tailwind v4 + CSS variables
