@@ -44,7 +44,7 @@ To run the app in the background on Windows without keeping a terminal open, use
 
 **Prerequisites:**
 - [Node.js](https://nodejs.org) installed
-- `.env.local` file created in the project root (see Setup above)
+- `.env.local` file created in the project root (see Setup above) — **the script will not proceed without it**
 
 **Steps:**
 1. Clone the repository to the Windows machine
@@ -55,10 +55,10 @@ The app will be available at [http://localhost:3000](http://localhost:3000) and 
 
 **Useful PM2 commands:**
 ```bash
-pm2 status                         # check if the app is running
-pm2 logs workflow-query-app        # view app logs
-pm2 restart workflow-query-app     # restart the app
-pm2 stop workflow-query-app        # stop the app
+pm2 status                              # check if the app is running
+pm2 logs workflow-query-app             # view app logs
+pm2 restart workflow-query-app          # restart the app
+pm2 stop workflow-query-app             # stop the app
 ```
 
 ## API Routes
@@ -107,3 +107,28 @@ app/
     query/route.ts  — Workflow block query endpoint
     teams/route.ts  — Active teams endpoint
 ```
+
+## Troubleshooting
+
+### PM2 shows `errored` status
+
+Run `pm2 logs workflow-query-app --lines 50` to see the crash output, then check the table below.
+
+| Error | Cause | Fix |
+|---|---|---|
+| `SyntaxError: missing ) after argument list` in `node_modules/.bin/next` | PM2 tried to run the Unix bash wrapper instead of a Node.js file | Fixed in `ecosystem.config.js` — `script` now points to `node_modules/next/dist/bin/next` |
+| DB connection errors or missing env vars | `.env.local` is missing or credentials are wrong | Create `.env.local` in the project root with the correct values (see Setup above) |
+
+### PM2 config changes not taking effect
+
+`pm2 restart` reuses the cached process definition and does **not** re-read `ecosystem.config.js`. After any change to `ecosystem.config.js`, run:
+
+```bash
+pm2 delete workflow-query-app
+pm2 start ecosystem.config.js
+pm2 save
+```
+
+### App starts but team dropdown is empty or queries fail
+
+Confirm the DB credentials in `.env.local` are correct and that the SQL Server is reachable from the machine running the app.
