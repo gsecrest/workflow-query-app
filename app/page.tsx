@@ -52,22 +52,8 @@ export default function Home() {
   }
 
   function exportCsv() {
-    const headers = ["Workflow Name", "Version", "Offering Status", "Block Title", "Block Type", "Team Name"];
-    const escape = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const lines = [
-      headers.map(escape).join(","),
-      ...rows.map((r) =>
-        [r.WorkflowName, r.DefVersion, r.RequestOfferingStatus, r.BlockTitle, r.BlockType, r.TeamName]
-          .map(escape).join(",")
-      ),
-    ];
-    const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "workflow-results.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+    const params = new URLSearchParams({ workflowName, blockType, teamName, status });
+    window.location.href = `/api/export?${params.toString()}`;
   }
 
   async function runQuery() {
