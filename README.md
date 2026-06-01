@@ -15,7 +15,7 @@ Searches across workflow definitions and returns matching blocks with their team
 | Block Type | `task`, `advancedtask`, or `update` |
 | Team Name | Team assigned to the block |
 
-Filters are optional — leaving any field blank searches across all values. When results are returned, **Copy to Clipboard** and **Export CSV** buttons appear in the results header. The clipboard copy uses tab-separated values so it pastes directly into Excel with columns aligned.
+All filters default to "all values" — leave any field blank to search across everything. When results are returned, **Copy to Clipboard** and **Export CSV** buttons appear in the results header. The clipboard copy uses tab-separated values so it pastes directly into Excel with columns aligned.
 
 ## Setup
 
@@ -37,6 +37,46 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+## Encrypting the Database Password (Windows DPAPI)
+
+For production deployments, use Windows DPAPI to encrypt the password so it is not stored in plaintext. The encrypted value is tied to your Windows user account — it cannot be decrypted on any other machine or user account.
+
+**Step 1 — Encrypt your password** (run in PowerShell):
+
+```powershell
+Add-Type -AssemblyName System.Security
+[System.Convert]::ToBase64String(
+  [System.Security.Cryptography.ProtectedData]::Protect(
+    [System.Text.Encoding]::UTF8.GetBytes("your-plaintext-password"),
+    $null,
+    [System.Security.Cryptography.DataProtectionScope]::CurrentUser
+  )
+)
+```
+
+Copy the output.
+
+**Step 2 — Update `.env.local`** — replace `DB_PASSWORD` with `DB_PASSWORD_ENCRYPTED`:
+
+```
+DB_SERVER=your-sql-server
+DB_DATABASE=your-database
+DB_USER=your-username
+DB_PASSWORD_ENCRYPTED=<paste encrypted value here>
+DB_PORT=1433
+```
+
+**Step 3 — Rebuild and restart:**
+
+```bash
+npm run build
+pm2 delete workflow-query-app
+pm2 start ecosystem.config.js
+pm2 save
+```
+
+The app decrypts the password at startup via `lib/db-password.ts` using `spawnSync` and PowerShell DPAPI. If `DB_PASSWORD_ENCRYPTED` is not set, it falls back to `DB_PASSWORD` for local dev.
 
 ## Windows Deployment (no terminal required)
 
@@ -90,13 +130,13 @@ Then delete the app folder from your machine. The `.env.local` file (with your D
 
 ### POST `/api/query`
 
-**Body:**
+**Body** (all fields optional — omit or pass empty string to match all):
 ```json
 {
   "workflowName": "",
-  "blockType": "task",
-  "teamName": "Risk Management Support",
-  "status": "Published"
+  "blockType": "",
+  "teamName": "",
+  "status": ""
 }
 ```
 
@@ -110,7 +150,7 @@ Then delete the app folder from your machine. The `.env.local` file (with your D
       "RequestOfferingStatus": "Published",
       "BlockTitle": "...",
       "BlockType": "task",
-      "TeamName": "Risk Management Support"
+      "TeamName": "..."
     }
   ]
 }
@@ -126,6 +166,8 @@ app/
   api/
     query/route.ts  — Workflow block query endpoint
     teams/route.ts  — Active teams endpoint
+lib/
+  db-password.ts    — DPAPI password decryption utility
 ```
 
 ## Troubleshooting
@@ -138,6 +180,7 @@ Run `pm2 logs workflow-query-app --lines 50` to see the crash output, then check
 |---|---|---|
 | `SyntaxError: missing ) after argument list` in `node_modules/.bin/next` | PM2 tried to run the Unix bash wrapper instead of a Node.js file | Fixed in `ecosystem.config.js` — `script` now points to `node_modules/next/dist/bin/next` |
 | DB connection errors or missing env vars | `.env.local` is missing or credentials are wrong | Create `.env.local` in the project root with the correct values (see Setup above) |
+| `Login failed for user` | `DB_PASSWORD_ENCRYPTED` key name wrong in `.env.local` | Ensure the key is `DB_PASSWORD_ENCRYPTED`, not `DB_PASSWORD` |
 
 ### PM2 config changes not taking effect
 
