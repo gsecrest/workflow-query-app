@@ -37,6 +37,8 @@ export default function Home() {
   const [hasQueried, setHasQueried] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const exportHref = `/api/export?${new URLSearchParams({ workflowName, blockType, teamName, status }).toString()}`;
+
   function copyToClipboard() {
     const headers = ["Workflow Name", "Version", "Offering Status", "Block Title", "Block Type", "Team Name"];
     const lines = [
@@ -49,11 +51,6 @@ export default function Home() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
-  }
-
-  function exportCsv() {
-    const params = new URLSearchParams({ workflowName, blockType, teamName, status });
-    window.location.href = `/api/export?${params.toString()}`;
   }
 
   async function runQuery() {
@@ -210,12 +207,12 @@ export default function Home() {
                     >
                       {copied ? "Copied!" : "Copy to Clipboard"}
                     </button>
-                    <button
-                      onClick={exportCsv}
+                    <a
+                      href={exportHref}
                       className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
                     >
                       Export CSV
-                    </button>
+                    </a>
                   </>
                 )}
               </div>
