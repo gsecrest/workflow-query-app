@@ -37,7 +37,7 @@ export default function Home() {
   const [hasQueried, setHasQueried] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const exportHref = `/api/export?${new URLSearchParams({ workflowName, blockType, teamName, status }).toString()}`;
+  const exportHref = `/api/export/workflow-results.csv?${new URLSearchParams({ workflowName, blockType, teamName, status }).toString()}`;
 
   function copyToClipboard() {
     const headers = ["Workflow Name", "Version", "Offering Status", "Block Title", "Block Type", "Team Name"];
