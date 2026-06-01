@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import sql from "mssql";
+import { dbPassword } from "@/lib/db-password";
 
 const config: sql.config = {
   server: process.env.DB_SERVER!,
   database: process.env.DB_DATABASE!,
   user: process.env.DB_USER!,
-  password: process.env.DB_PASSWORD!,
+  password: dbPassword,
   port: parseInt(process.env.DB_PORT || "1433"),
   options: {
     encrypt: true,
