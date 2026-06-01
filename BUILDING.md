@@ -81,7 +81,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Workflow Query App",
-  description: "Find teams by workflow block type",
+  description: "Find team block ownership in Ivanti workflows",
 };
 
 export default function RootLayout({
@@ -290,7 +290,60 @@ The final `SELECT` UNIONs `#Blocks` (looking up team from `frs_def_quick_actions
 
 ---
 
-## Step 9: Build the UI page
+## Step 9: Build the CSV export route
+
+Create `app/api/export/workflow-results.csv/route.ts`. This GET endpoint runs the same query as `/api/query` and returns the results as a CSV file. The filename is embedded in the URL path so browsers use it as the download name even when managed browser policies ignore `Content-Disposition` headers.
+
+```ts
+import { NextRequest, NextResponse } from "next/server";
+import sql from "mssql";
+import { dbPassword } from "@/lib/db-password";
+
+// same config and query as query/route.ts ...
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const workflowName = searchParams.get("workflowName") ?? "";
+  const blockType    = searchParams.get("blockType")    ?? "";
+  const teamName     = searchParams.get("teamName")     ?? "";
+  const status       = searchParams.get("status")       ?? "";
+
+  const pool = await sql.connect(config);
+  const result = await pool.request()
+    .input("wf", sql.NVarChar(255), workflowName)
+    .input("bt", sql.NVarChar(50),  blockType)
+    .input("tn", sql.NVarChar(255), teamName)
+    .input("st", sql.NVarChar(50),  status)
+    .query(query);
+  await pool.close();
+
+  const escape = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const headers = ["Workflow Name", "Version", "Offering Status", "Block Title", "Block Type", "Team Name"];
+  const lines = [
+    headers.map(escape).join(","),
+    ...result.recordset.map((r) =>
+      [r.WorkflowName, r.DefVersion, r.RequestOfferingStatus, r.BlockTitle, r.BlockType, r.TeamName]
+        .map(escape).join(",")
+    ),
+  ];
+
+  return new NextResponse("﻿" + lines.join("\r\n"), {
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": 'attachment; filename="workflow-results.csv"',
+    },
+  });
+}
+```
+
+**Key points:**
+- The route directory is literally named `workflow-results.csv` — this puts the filename in the URL path (`/api/export/workflow-results.csv`), which browsers use as the download filename even when organization policies override `Content-Disposition`.
+- `﻿` is the UTF-8 BOM — required for Excel on Windows to recognize the encoding and open the file directly without an import wizard.
+- Filters are passed as query string parameters since this is a GET request triggered by a plain `<a href>` link, not a form POST.
+
+---
+
+## Step 10: Build the UI page
 
 Replace `app/page.tsx` with the filter form and results table. The component is a single `"use client"` page with four state-driven filters.
 
@@ -349,82 +402,21 @@ async function runQuery() {
 }
 ```
 
-### Results table
+### Export CSV link
 
-The results section only renders when `hasQueried && !error`. The "No results found" message checks `!loading` to avoid flashing during the fetch:
-
-```tsx
-{hasQueried && !error && (
-  <div>
-    {rows.length === 0 && !loading ? (
-      <p>No results found for the selected filters.</p>
-    ) : (
-      <table>...</table>
-    )}
-  </div>
-)}
-```
-
-### Input styling
-
-Filter labels use `text-gray-800` and all inputs/selects use `text-gray-900` for readable contrast against the white card background. The Team Name select also has `disabled:text-gray-400` so it visually dims while teams are loading.
+The **Export CSV** link is a plain `<a>` tag pointing to the server-side export route. No JavaScript is involved — clicking it triggers a normal browser navigation which the server responds to with a CSV download.
 
 ```tsx
-<label className="block text-xs font-semibold text-gray-800 uppercase tracking-wide mb-1">
-  Workflow Name
-</label>
-<input
-  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 ..."
-/>
-```
+const exportHref = `/api/export/workflow-results.csv?${new URLSearchParams({ workflowName, blockType, teamName, status }).toString()}`;
 
-### Block type badge helper
-
-`BlockTypeBadge` maps known block types to colors; anything unrecognised gets a neutral grey:
-
-```tsx
-function BlockTypeBadge({ type }: { type: string }) {
-  const color =
-    type === "task"         ? "bg-blue-100 text-blue-700"   :
-    type === "advancedtask" ? "bg-purple-100 text-purple-700" :
-    type === "update"       ? "bg-orange-100 text-orange-700" :
-                              "bg-gray-100 text-gray-500";
-  return <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${color}`}>{type}</span>;
-}
-```
-
-Offering Status renders as plain text (no badge) since the values vary and don't map cleanly to a fixed color set.
-
-### CSV export
-
-An **Export CSV** button appears in the results header whenever there are rows. It is entirely client-side — no package needed.
-
-```tsx
-function exportCsv() {
-  const headers = ["Workflow Name", "Version", "Offering Status", "Block Title", "Block Type", "Team Name"];
-  const escape = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const lines = [
-    headers.map(escape).join(","),
-    ...rows.map((r) =>
-      [r.WorkflowName, r.DefVersion, r.RequestOfferingStatus, r.BlockTitle, r.BlockType, r.TeamName]
-        .map(escape).join(",")
-    ),
-  ];
-  const blob = new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "workflow-results.csv";
-  a.click();
-  URL.revokeObjectURL(url);
-}
+// In JSX:
+<a href={exportHref} className="...">Export CSV</a>
 ```
 
 **Key points:**
-- `escape()` wraps every value in double quotes and escapes any internal quotes (`"` → `""`), handling commas and special characters in workflow names safely.
-- `\r\n` line endings are used — required by the CSV spec and expected by Excel.
-- `URL.createObjectURL` / `revokeObjectURL` creates a temporary download link and immediately cleans it up.
-- Both buttons only render when `rows.length > 0`, so they never appear on an empty result set.
+- Using a plain `<a>` tag (not a button with `onClick`) is more reliable in managed browser environments.
+- `exportHref` is computed from React state, so it always reflects the current filter values when clicked.
+- The server re-runs the query — the export is independent of the displayed results, so it always reflects the current filters even if the user changed them after running the query.
 
 ### Copy to Clipboard
 
@@ -448,15 +440,19 @@ function copyToClipboard() {
 }
 ```
 
-The button label switches to **"Copied!"** for 2 seconds via the `copied` state, then resets — giving the user clear confirmation without a modal or toast.
+The button label switches to **"Copied!"** for 2 seconds via the `copied` state, then resets.
 
 **Key points:**
-- TSV (tab-separated) rather than CSV is used here because `navigator.clipboard.writeText` writes plain text. Tabs are the delimiter Excel recognises when pasting plain text into a sheet.
+- TSV (tab-separated) rather than CSV is used because `navigator.clipboard.writeText` writes plain text. Tabs are the delimiter Excel recognises when pasting plain text into a sheet.
 - `setTimeout` resets `copied` after 2 seconds so the button is ready to use again.
+
+### Results table
+
+The results section only renders when `hasQueried && !error`. The "No results found" message checks `!loading` to avoid flashing during the fetch.
 
 ---
 
-## Step 10: Run and verify
+## Step 11: Run and verify
 
 ```bash
 npm run dev
@@ -471,8 +467,8 @@ Open [http://localhost:3000](http://localhost:3000). The Team Name dropdown shou
 | Team dropdown stays empty | `.env.local` credentials wrong or DB unreachable |
 | `encrypt` / SSL errors | Set `trustServerCertificate: true` in the mssql config |
 | Empty results for valid filters | Workflow names in DB use a different casing or suffix — check the `LIKE '%form'` filter in the SQL |
-| `No results found` flash on load | Missing `!loading` guard on the empty-state message |
 | `Login failed for user` with DPAPI | Key named `DB_PASSWORD` instead of `DB_PASSWORD_ENCRYPTED` in `.env.local` |
+| Export CSV does nothing in Chrome | Add `http://localhost:3000` to Chrome's allowed pop-ups and redirects in site settings |
 
 ---
 
@@ -480,16 +476,21 @@ Open [http://localhost:3000](http://localhost:3000). The Team Name dropdown shou
 
 ```
 workflow-query-app/
-├── .env.local                  ← DB credentials (not committed)
+├── .env.local                       ← DB credentials (not committed)
 ├── lib/
-│   └── db-password.ts          ← DPAPI password decryption utility
+│   └── db-password.ts               ← DPAPI password decryption utility
 ├── app/
-│   ├── layout.tsx              ← Root layout, fonts
-│   ├── globals.css             ← Tailwind v4 + CSS variables
-│   ├── page.tsx                ← Filter UI + results table
+│   ├── layout.tsx                   ← Root layout, fonts, page title
+│   ├── globals.css                  ← Tailwind v4 + CSS variables
+│   ├── page.tsx                     ← Filter UI + results table
 │   └── api/
-│       ├── teams/route.ts      ← GET active service desk teams
-│       └── query/route.ts      ← POST workflow block search
+│       ├── teams/route.ts           ← GET active service desk teams
+│       ├── query/route.ts           ← POST workflow block search
+│       └── export/
+│           └── workflow-results.csv/
+│               └── route.ts         ← GET CSV export (filename in URL path)
+├── ecosystem.config.js              ← PM2 process config
+├── setup-windows.bat                ← Windows one-click setup script
 ├── package.json
 └── tsconfig.json
 ```
