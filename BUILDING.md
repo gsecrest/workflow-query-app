@@ -215,7 +215,7 @@ DECLARE @WorkflowName NVARCHAR(255) = @wf;
 **Key points:**
 - `WITH (NOLOCK)` is added to all base-table reads (`frs_def_workflow_definition`, `frs_def_workflow_type`, `ServiceReqFulfillmentPlan`, `FusionLink`, `ServiceReqTemplate`, `frs_def_quick_actions`). This is a read-only reporting query; NOLOCK prevents it from blocking or being blocked by concurrent writes on the live Ivanti system.
 - Temp table reads do not need NOLOCK — they are session-scoped.
-- The `OwnerTeam` extraction in the final SELECT uses `OPENJSON(qa.Definition, '$.FieldValues')` to parse the JSON array in `frs_def_quick_actions.Definition` and find the element where `FieldName = "OwnerTeam"`, reading its `ExpressionText` value. This is more reliable than string scanning because it is field-order-independent.
+- The `OwnerTeam` extraction in the final SELECT uses `CHARINDEX` string scanning rather than `OPENJSON`. Ivanti stores JavaScript Date literals (`new Date(...)`) in the `Definition` column, which is valid JavaScript but not valid JSON — `OPENJSON` validates the entire document and rejects it before reaching `$.FieldValues`. `CHARINDEX` tolerates the non-standard format because it never parses the document as JSON. The extraction finds `"FieldName":"OwnerTeam"` then searches forward for `"ExpressionText":"` from that position; if `ExpressionText` is null in the JSON (`"ExpressionText":null`), the second search returns 0 and `TeamName` is correctly set to NULL rather than grabbing arbitrary text.
 
 ---
 
@@ -304,7 +304,7 @@ The query has five stages:
 
 The final `SELECT` UNIONs two branches, both joined to `#WorkflowOffering` for the status column:
 
-- **`#Blocks` branch** — joins to `frs_def_quick_actions` and uses `OPENJSON` to extract the team name from the `FieldValues` JSON array in the `Definition` column: it finds the element where `FieldName = "OwnerTeam"` and reads its `ExpressionText` value.
+- **`#Blocks` branch** — joins to `frs_def_quick_actions` and uses `CHARINDEX` string scanning to extract the team name from the `Definition` column: it finds `"FieldName":"OwnerTeam"` then searches forward for `"ExpressionText":"` to read the value. `OPENJSON` cannot be used here because Ivanti stores JavaScript Date literals (`new Date(...)`) in the column, which are not valid JSON.
 - **`#TaskBlocks` branch** — team name was already extracted from XML in the `#TaskBlocks` stage, so no further lookup is needed.
 
 ---
