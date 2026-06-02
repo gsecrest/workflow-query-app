@@ -20,6 +20,7 @@ export default function Home() {
   const [teamName, setTeamName] = useState("");
   const [status, setStatus] = useState("");
   const [teams, setTeams] = useState<string[]>([]);
+  const [approvalGroups, setApprovalGroups] = useState<string[]>([]);
   const [teamsLoading, setTeamsLoading] = useState(true);
 
   useEffect(() => {
@@ -27,6 +28,7 @@ export default function Home() {
       .then((r) => r.json())
       .then((data) => {
         if (data.teams) setTeams(data.teams);
+        if (data.approvalGroups) setApprovalGroups(data.approvalGroups);
       })
       .finally(() => setTeamsLoading(false));
   }, []);
@@ -144,9 +146,20 @@ export default function Home() {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:text-gray-400"
               >
                 <option value="">All teams</option>
-                {teams.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
+                {teams.length > 0 && (
+                  <optgroup label="Service Desk Teams">
+                    {teams.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </optgroup>
+                )}
+                {approvalGroups.length > 0 && (
+                  <optgroup label="Approval Groups">
+                    {approvalGroups.map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
 
