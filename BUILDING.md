@@ -215,6 +215,7 @@ DECLARE @WorkflowName NVARCHAR(255) = @wf;
 **Key points:**
 - `WITH (NOLOCK)` is added to all base-table reads (`frs_def_workflow_definition`, `frs_def_workflow_type`, `ServiceReqFulfillmentPlan`, `FusionLink`, `ServiceReqTemplate`, `frs_def_quick_actions`). This is a read-only reporting query; NOLOCK prevents it from blocking or being blocked by concurrent writes on the live Ivanti system.
 - Temp table reads do not need NOLOCK — they are session-scoped.
+- The `OwnerTeam` extraction in the final SELECT uses `OPENJSON(qa.Definition, '$.FieldValues')` to parse the JSON array in `frs_def_quick_actions.Definition` and find the element where `FieldName = "OwnerTeam"`, reading its `ExpressionText` value. This is more reliable than string scanning because it is field-order-independent.
 
 ---
 
@@ -301,7 +302,10 @@ The query has five stages:
 | `#TaskBlocks` | Extracts task blocks via the `teamblock` property |
 | `#WorkflowOffering` | Joins workflow IDs to their request offering status |
 
-The final `SELECT` UNIONs `#Blocks` (looking up team from `frs_def_quick_actions`) with `#TaskBlocks`, joined to `#WorkflowOffering` for the status column.
+The final `SELECT` UNIONs two branches, both joined to `#WorkflowOffering` for the status column:
+
+- **`#Blocks` branch** — joins to `frs_def_quick_actions` and uses `OPENJSON` to extract the team name from the `FieldValues` JSON array in the `Definition` column: it finds the element where `FieldName = "OwnerTeam"` and reads its `ExpressionText` value.
+- **`#TaskBlocks` branch** — team name was already extracted from XML in the `#TaskBlocks` stage, so no further lookup is needed.
 
 ---
 
