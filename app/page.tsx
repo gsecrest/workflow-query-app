@@ -137,7 +137,7 @@ export default function Home() {
 
             <div>
               <label className="block text-xs font-semibold text-gray-800 uppercase tracking-wide mb-1">
-                Team Name
+                Team / Group
               </label>
               <select
                 value={teamName}
@@ -245,7 +245,7 @@ export default function Home() {
                       <th className="px-4 py-3 text-left font-semibold">Offering Status</th>
                       <th className="px-4 py-3 text-left font-semibold">Block Title</th>
                       <th className="px-4 py-3 text-left font-semibold">Block Type</th>
-                      <th className="px-4 py-3 text-left font-semibold">Team Name</th>
+                      <th className="px-4 py-3 text-left font-semibold">Team / Group</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -260,7 +260,12 @@ export default function Home() {
                         <td className="px-4 py-3">
                           <BlockTypeBadge type={row.BlockType} />
                         </td>
-                        <td className="px-4 py-3 text-gray-900">{row.TeamName}</td>
+                        <td className="px-4 py-3 text-gray-900">
+                          {row.TeamName}
+                          {row.BlockType === "vote0007" && (
+                            <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-400">group</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
