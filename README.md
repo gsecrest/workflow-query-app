@@ -171,7 +171,9 @@ app/
       workflow-results.csv/
         route.ts             — CSV export endpoint
 lib/
+  db.ts             — Shared connection pool and DB config
   db-password.ts    — DPAPI password decryption utility
+  workflow-query.ts — Shared SQL query (used by query and export routes)
 ```
 
 ## Troubleshooting

@@ -166,18 +166,17 @@ export const dbPassword = resolveDbPassword();
 **Key points:**
 - `spawnSync` is used instead of `execSync` so the encrypted value is passed as an environment variable (`$env:ENCRYPTED_PW`) rather than interpolated into the command string — this avoids shell escaping issues with `+` and `/` characters in base64.
 - `DataProtectionScope.CurrentUser` ties the encryption to the Windows user account that encrypted it. The same account must run the app.
-- The function runs once at module load time; `dbPassword` is a stable export used by both API routes.
+- The function runs once at module load time; `dbPassword` is a stable export consumed by `lib/db.ts`.
 
 ---
 
-## Step 7: Build the teams API route
+## Step 7: Create the shared DB pool
 
-Create `app/api/teams/route.ts`. This endpoint returns all active service desk teams for the dropdown.
+Create `lib/db.ts`. All three API routes import from here so the app maintains a single persistent connection pool instead of opening and closing a connection on every request.
 
 ```ts
-import { NextResponse } from "next/server";
 import sql from "mssql";
-import { dbPassword } from "@/lib/db-password";
+import { dbPassword } from "./db-password";
 
 const config: sql.config = {
   server: process.env.DB_SERVER!,
@@ -191,19 +190,54 @@ const config: sql.config = {
   },
 };
 
+export const pool = new sql.ConnectionPool(config);
+export const poolConnect = pool.connect();
+```
+
+**Key points:**
+- `new sql.ConnectionPool(config)` creates the pool at module load time but does not connect yet.
+- `pool.connect()` returns a promise that resolves when the initial connection is established. Each route handler `await`s `poolConnect` before running a query.
+- Never call `pool.close()` in route handlers — doing so tears down the TCP connection and forces a reconnect on every request, which adds significant latency.
+
+---
+
+## Step 8: Create the shared SQL query
+
+Create `lib/workflow-query.ts`. The workflow block query is identical for both the search and export routes — extracting it here eliminates duplication and makes it the single place to tune the SQL.
+
+```ts
+export const workflowQuery = `
+DECLARE @WorkflowName NVARCHAR(255) = @wf;
+-- ... (full query — see source file)
+`;
+```
+
+**Key points:**
+- `WITH (NOLOCK)` is added to all base-table reads (`frs_def_workflow_definition`, `frs_def_workflow_type`, `ServiceReqFulfillmentPlan`, `FusionLink`, `ServiceReqTemplate`, `frs_def_quick_actions`). This is a read-only reporting query; NOLOCK prevents it from blocking or being blocked by concurrent writes on the live Ivanti system.
+- Temp table reads do not need NOLOCK — they are session-scoped.
+
+---
+
+## Step 9: Build the teams API route
+
+Create `app/api/teams/route.ts`. This endpoint returns all active service desk teams for the dropdown.
+
+```ts
+import { NextResponse } from "next/server";
+import { pool, poolConnect } from "@/lib/db";
+
 export async function GET() {
   try {
-    const pool = await sql.connect(config);
+    await poolConnect;
     const result = await pool.request().query(`
       SELECT DISTINCT Team
-      FROM StandardUserTeam
+      FROM StandardUserTeam WITH (NOLOCK)
       WHERE ISNULL(WC_Inactive, 0) = 0
         AND IsServiceDesk = 1
         AND Team IS NOT NULL
         AND Team <> ''
       ORDER BY Team
     `);
-    await pool.close();
     const teams = result.recordset.map((r: { Team: string }) => r.Team);
     return NextResponse.json({ teams });
   } catch (err: unknown) {
@@ -214,53 +248,34 @@ export async function GET() {
 ```
 
 **Key points:**
-- `dbPassword` from `lib/db-password.ts` handles both plaintext and DPAPI-encrypted passwords transparently.
-- `trustServerCertificate: true` is needed for self-signed certs common in internal SQL Server instances.
-- Always call `pool.close()` after the query to release the connection.
+- `await poolConnect` ensures the shared pool is connected before the first query. After that it resolves instantly on subsequent requests.
+- DB config and credentials are centralised in `lib/db.ts` — no config duplication across routes.
+- `trustServerCertificate: true` (set in `lib/db.ts`) is needed for self-signed certs common in internal SQL Server instances.
 
 ---
 
-## Step 8: Build the query API route
+## Step 10: Build the query API route
 
-Create `app/api/query/route.ts`. This is the main search endpoint — it accepts filter parameters and runs a multi-step SQL query that shreds workflow XML to extract block and team data.
+Create `app/api/query/route.ts`. This is the main search endpoint — it accepts filter parameters and runs the multi-step SQL query from `lib/workflow-query.ts` that shreds workflow XML to extract block and team data.
 
 ```ts
 import { NextRequest, NextResponse } from "next/server";
 import sql from "mssql";
-import { dbPassword } from "@/lib/db-password";
-
-const config: sql.config = {
-  server: process.env.DB_SERVER!,
-  database: process.env.DB_DATABASE!,
-  user: process.env.DB_USER!,
-  password: dbPassword,
-  port: parseInt(process.env.DB_PORT || "1433"),
-  options: {
-    encrypt: true,
-    trustServerCertificate: true,
-  },
-};
+import { pool, poolConnect } from "@/lib/db";
+import { workflowQuery } from "@/lib/workflow-query";
 
 export async function POST(req: NextRequest) {
   const { workflowName, blockType, teamName, status } = await req.json();
 
-  // See the full query in the source file — it:
-  // 1. Finds the latest version of each *form workflow
-  // 2. Shreds the XML definition into individual blocks
-  // 3. Extracts team assignments via two paths (QuickAction and teamblock)
-  // 4. Joins to ServiceReqFulfillmentPlan to get the offering status
-  // 5. UNIONs both paths and returns sorted results
-
   try {
-    const pool = await sql.connect(config);
+    await poolConnect;
     const result = await pool
       .request()
       .input("wf", sql.NVarChar(255), workflowName ?? "")
       .input("bt", sql.NVarChar(50),  blockType   ?? "")
       .input("tn", sql.NVarChar(255), teamName    ?? "")
       .input("st", sql.NVarChar(50),  status      ?? "")
-      .query(query);
-    await pool.close();
+      .query(workflowQuery);
     return NextResponse.json({ rows: result.recordset });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
@@ -290,16 +305,15 @@ The final `SELECT` UNIONs `#Blocks` (looking up team from `frs_def_quick_actions
 
 ---
 
-## Step 9: Build the CSV export route
+## Step 11: Build the CSV export route
 
-Create `app/api/export/workflow-results.csv/route.ts`. This GET endpoint runs the same query as `/api/query` and returns the results as a CSV file. The filename is embedded in the URL path so browsers use it as the download name even when managed browser policies ignore `Content-Disposition` headers.
+Create `app/api/export/workflow-results.csv/route.ts`. This GET endpoint runs the same query as `/api/query` (imported from `lib/workflow-query.ts`) and returns the results as a CSV file. The filename is embedded in the URL path so browsers use it as the download name even when managed browser policies ignore `Content-Disposition` headers.
 
 ```ts
 import { NextRequest, NextResponse } from "next/server";
 import sql from "mssql";
-import { dbPassword } from "@/lib/db-password";
-
-// same config and query as query/route.ts ...
+import { pool, poolConnect } from "@/lib/db";
+import { workflowQuery } from "@/lib/workflow-query";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -308,31 +322,36 @@ export async function GET(req: NextRequest) {
   const teamName     = searchParams.get("teamName")     ?? "";
   const status       = searchParams.get("status")       ?? "";
 
-  const pool = await sql.connect(config);
-  const result = await pool.request()
-    .input("wf", sql.NVarChar(255), workflowName)
-    .input("bt", sql.NVarChar(50),  blockType)
-    .input("tn", sql.NVarChar(255), teamName)
-    .input("st", sql.NVarChar(50),  status)
-    .query(query);
-  await pool.close();
+  try {
+    await poolConnect;
+    const result = await pool
+      .request()
+      .input("wf", sql.NVarChar(255), workflowName)
+      .input("bt", sql.NVarChar(50),  blockType)
+      .input("tn", sql.NVarChar(255), teamName)
+      .input("st", sql.NVarChar(50),  status)
+      .query(workflowQuery);
 
-  const escape = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const headers = ["Workflow Name", "Version", "Offering Status", "Block Title", "Block Type", "Team Name"];
-  const lines = [
-    headers.map(escape).join(","),
-    ...result.recordset.map((r) =>
-      [r.WorkflowName, r.DefVersion, r.RequestOfferingStatus, r.BlockTitle, r.BlockType, r.TeamName]
-        .map(escape).join(",")
-    ),
-  ];
+    const escape = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const headers = ["Workflow Name", "Version", "Offering Status", "Block Title", "Block Type", "Team Name"];
+    const lines = [
+      headers.map(escape).join(","),
+      ...result.recordset.map((r) =>
+        [r.WorkflowName, r.DefVersion, r.RequestOfferingStatus, r.BlockTitle, r.BlockType, r.TeamName]
+          .map(escape).join(",")
+      ),
+    ];
 
-  return new NextResponse("﻿" + lines.join("\r\n"), {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": 'attachment; filename="workflow-results.csv"',
-    },
-  });
+    return new NextResponse("﻿" + lines.join("\r\n"), {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="workflow-results.csv"',
+      },
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 ```
 
@@ -343,7 +362,7 @@ export async function GET(req: NextRequest) {
 
 ---
 
-## Step 10: Build the UI page
+## Step 12: Build the UI page
 
 Replace `app/page.tsx` with the filter form and results table. The component is a single `"use client"` page with four state-driven filters.
 
@@ -452,7 +471,7 @@ The results section only renders when `hasQueried && !error`. The "No results fo
 
 ---
 
-## Step 11: Run and verify
+## Step 13: Run and verify
 
 ```bash
 npm run dev
@@ -478,7 +497,9 @@ Open [http://localhost:3000](http://localhost:3000). The Team Name dropdown shou
 workflow-query-app/
 ├── .env.local                       ← DB credentials (not committed)
 ├── lib/
-│   └── db-password.ts               ← DPAPI password decryption utility
+│   ├── db.ts                        ← Shared connection pool and DB config
+│   ├── db-password.ts               ← DPAPI password decryption utility
+│   └── workflow-query.ts            ← Shared SQL query (query + export routes)
 ├── app/
 │   ├── layout.tsx                   ← Root layout, fonts, page title
 │   ├── globals.css                  ← Tailwind v4 + CSS variables
