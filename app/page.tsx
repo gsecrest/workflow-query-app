@@ -11,7 +11,7 @@ type Row = {
   TeamName: string;
 };
 
-const BLOCK_TYPES = ["", "task", "advancedtask", "update"];
+const BLOCK_TYPES = ["", "task", "advancedtask", "update", "vote0007"];
 const STATUSES = ["", "Published", "Design"];
 
 export default function Home() {
@@ -273,6 +273,8 @@ function BlockTypeBadge({ type }: { type: string }) {
       ? "bg-purple-100 text-purple-700"
       : type === "update"
       ? "bg-orange-100 text-orange-700"
+      : type === "vote0007"
+      ? "bg-green-100 text-green-700"
       : "bg-gray-100 text-gray-500";
   return (
     <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${color}`}>
