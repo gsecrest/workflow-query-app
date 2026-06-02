@@ -121,18 +121,11 @@ SELECT
     tn.TeamName
 FROM #Blocks b
 JOIN frs_def_quick_actions qa WITH (NOLOCK) ON qa.Id = b.QAID
-CROSS APPLY (VALUES (
-    CHARINDEX('"FieldName":"OwnerTeam"', qa.Definition)
-)) ownerPos (pos)
-CROSS APPLY (VALUES (
-    CHARINDEX('"ExpressionText":"', qa.Definition, ownerPos.pos) + 18
-)) valStart (idx)
-CROSS APPLY (VALUES (
-    CASE WHEN ownerPos.pos > 0
-         THEN LEFT(SUBSTRING(qa.Definition, valStart.idx, 500),
-                   CHARINDEX('"', SUBSTRING(qa.Definition, valStart.idx, 500)) - 1)
-    END
-)) tn (TeamName)
+CROSS APPLY (
+    SELECT TOP 1 JSON_VALUE(fv.value, '$.ExpressionText') AS TeamName
+    FROM OPENJSON(qa.Definition, '$.FieldValues') fv
+    WHERE JSON_VALUE(fv.value, '$.FieldName') = 'OwnerTeam'
+) tn
 LEFT JOIN #WorkflowOffering wo ON wo.WorkflowId = b.WorkflowDefinitionRecID
 WHERE tn.TeamName IS NOT NULL
   AND tn.TeamName <> ''
