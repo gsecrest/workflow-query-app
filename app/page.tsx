@@ -12,7 +12,7 @@ type Row = {
 };
 
 const BLOCK_TYPES = ["", "task", "advancedtask", "update", "create", "notification", "quickaction", "createnew0002", "vote0007", "vote"];
-const STATUSES = ["", "Published", "Design"];
+const STATUSES = ["", "Published", "Design", "No Offering"];
 
 export default function Home() {
   const [workflowName, setWorkflowName] = useState("");
@@ -99,7 +99,7 @@ export default function Home() {
             Find Team by Block Type &amp; Workflow
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Leave any field blank to search across all values.
+            Leave any field blank to search across all values. Status defaults to workflows with an offering — select <strong>No Offering</strong> to see unlinked workflows.
           </p>
         </div>
 
@@ -159,7 +159,7 @@ export default function Home() {
               >
                 {STATUSES.map((s) => (
                   <option key={s} value={s}>
-                    {s === "" ? "All statuses" : s}
+                    {s === "" ? "Has offering" : s}
                   </option>
                 ))}
               </select>
