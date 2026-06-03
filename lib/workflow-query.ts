@@ -119,7 +119,7 @@ CROSS APPLY (VALUES (
     UPPER(LTRIM(RTRIM(g.grp.value('(param[name="contactgroup"]/value)[1]', 'nvarchar(50)'))))
 )) av (ContactGroupId)
 JOIN ContactGroup cg WITH (NOLOCK) ON UPPER(cg.RecId) = av.ContactGroupId
-WHERE ab.BlockType = 'vote0007'
+WHERE ab.BlockType IN ('vote0007', 'vote')
   AND av.ContactGroupId <> ''
   AND (@TeamName = '' OR cg.Name LIKE '%' + @TeamName + '%');
 

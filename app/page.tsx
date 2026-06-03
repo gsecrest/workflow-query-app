@@ -11,7 +11,7 @@ type Row = {
   TeamName: string;
 };
 
-const BLOCK_TYPES = ["", "task", "advancedtask", "update", "vote0007"];
+const BLOCK_TYPES = ["", "task", "advancedtask", "update", "create", "notification", "quickaction", "createnew0002", "vote0007", "vote"];
 const STATUSES = ["", "Published", "Design"];
 
 export default function Home() {
@@ -262,7 +262,7 @@ export default function Home() {
                         </td>
                         <td className="px-4 py-3 text-gray-900">
                           {row.TeamName}
-                          {row.BlockType === "vote0007" && (
+                          {(row.BlockType === "vote0007" || row.BlockType === "vote") && (
                             <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-400">group</span>
                           )}
                         </td>
@@ -291,7 +291,15 @@ function BlockTypeBadge({ type }: { type: string }) {
       ? "bg-purple-100 text-purple-700"
       : type === "update"
       ? "bg-orange-100 text-orange-700"
-      : type === "vote0007"
+      : type === "create"
+      ? "bg-teal-100 text-teal-700"
+      : type === "notification"
+      ? "bg-yellow-100 text-yellow-700"
+      : type === "quickaction"
+      ? "bg-indigo-100 text-indigo-700"
+      : type === "createnew0002"
+      ? "bg-pink-100 text-pink-700"
+      : type === "vote0007" || type === "vote"
       ? "bg-green-100 text-green-700"
       : "bg-gray-100 text-gray-500";
   return (
