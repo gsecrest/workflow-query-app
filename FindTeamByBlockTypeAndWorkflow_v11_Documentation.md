@@ -42,16 +42,18 @@ When an Extended Task block has both a task-level team assignment **and** a Quic
 
 ## Block Types
 
+The Block Type dropdown is sorted alphabetically by display label.
+
 | Block Type Value | Display Label | Description |
 |---|---|---|
-| `task` | **Task** | Standard task block with a direct team assignment |
-| `advancedtask` | **Extended Task** | Advanced task block — team assigned via the task-level teamblock property |
-| `advancedtask_qa` | **Extended Task (QA)** | The OwnerTeam set via the QuickAction associated with an Extended Task block. Appears as an indented sub-row beneath its Extended Task |
-| `quickaction` | **Quick Action** | Standalone Quick Action block with an OwnerTeam assignment |
-| `update` | **Update** | Updates fields on an existing record |
-| `create` | **Insert Child** | Creates a child record (older block type) |
 | `createnew0002` | **Create Object** | Creates a new object via QuickAction (current block type) |
+| `advancedtask` | **Extended Task** | Advanced task block — team assigned via the task-level teamblock property |
+| `advancedtask_qa` | **Extended Task (QA)** | The OwnerTeam set via the QuickAction associated with an Extended Task block. Appears as an indented sub-row beneath its Extended Task. Can also be selected directly from the Block Type dropdown |
 | `vote0007` | **Get Approval** | Approval block — sends a request to an approval group |
+| `create` | **Insert Child** | Creates a child record (older block type) |
+| `quickaction` | **Quick Action** | Standalone Quick Action block with an OwnerTeam assignment |
+| `task` | **Task** | Standard task block with a direct team assignment |
+| `update` | **Update** | Updates fields on an existing record |
 | `vote` | **Get Approval** | Older approval block type, functionally equivalent to `vote0007`. Found in legacy workflows. Both `vote` and `vote0007` are returned when Get Approval is selected. |
 
 > **Note on `vote` blocks:** Legacy workflows such as "Software Installation Request (Legacy)" and "New Computer Request (Legacy)" use the older `vote` block type. These may return no team results if their linked approval groups are no longer active in the system.
@@ -62,7 +64,7 @@ When an Extended Task block has both a task-level team assignment **and** a Quic
 
 ## Exporting Results
 
-When results are returned, two export options appear in the results header:
+When results are returned, the results header shows a **row count badge** (e.g. "4 rows") and two export options:
 
 - **Copy to Clipboard** — Copies results as tab-separated values. Paste directly into Excel and columns will align automatically.
 - **Export CSV** — Downloads results as a `.csv` file.
@@ -219,6 +221,7 @@ In both cases, delete the app folder to remove the app and `.env.local` credenti
 
 | Version | Changes |
 |---|---|
+| v12 | Block Type dropdown alphabetized by display label; Extended Task (QA) added as a selectable dropdown option; row count displayed as a prominent badge in the results header. |
 | v11 | Added Installation & Setup section. setup-windows.bat updated with Install/Uninstall main menu, PM2 global and local options, and multi-DB password encryption. Added standalone uninstall-windows.bat. |
 | v10 | SQL query performance optimizations: BlockType computed once per block; QuickAction definitions pre-materialised per unique QAID; OwnerTeam extraction uses single combined CHARINDEX; WorkflowOffering scoped to matched workflows only. |
 | v9 | Multi-database support; Extended Task (QA) sub-row display; block type labels (Task, Extended Task, Insert Child, Create Object, Get Approval, Update, Quick Action); multi-word workflow name search; No Offering workflows now shown; fixed QuickAction OwnerTeam resolution for long `ntext` definitions; `vote` and `vote0007` merged under Get Approval filter |
