@@ -14,7 +14,7 @@ The app provides four search filters. All filters are optional — leave any fie
 
 | Filter | Description |
 |---|---|
-| **Database** | Select which Ivanti environment to query (e.g. Williams PRD). Changing the database reloads the Team / Group dropdown for that environment. |
+| **Database** | Select which Ivanti environment to query (e.g. Customer1 PRD). Changing the database reloads the Team / Group dropdown for that environment. |
 | **Workflow Name** | Partial name search. Supports multiple words — each word is matched independently, so typing `Ivanti Test` finds workflows containing both words anywhere in the name. |
 | **Block Type** | Filter by the type of workflow block. See Block Types section below. |
 | **Status** | Filter by the request offering status: Published, Design, or leave blank for all. |
@@ -122,20 +122,20 @@ Workflows with `No Offering` status are included in results — previously these
 The app supports one or more Ivanti database environments. Add each as a named entry under `DB_NAMES`:
 
 ```
-DB_NAMES=WILLIAMS_PRD
+DB_NAMES=CUSTOMER1_PRD
 
-DB_WILLIAMS_PRD_LABEL=Williams PRD
-DB_WILLIAMS_PRD_SERVER=your-sql-server
-DB_WILLIAMS_PRD_DATABASE=your-database
-DB_WILLIAMS_PRD_USER=your-username
-DB_WILLIAMS_PRD_PASSWORD=your-password
-DB_WILLIAMS_PRD_PORT=1433
+DB_CUSTOMER1_PRD_LABEL=Customer1 PRD
+DB_CUSTOMER1_PRD_SERVER=your-sql-server
+DB_CUSTOMER1_PRD_DATABASE=your-database
+DB_CUSTOMER1_PRD_USER=your-username
+DB_CUSTOMER1_PRD_PASSWORD=your-password
+DB_CUSTOMER1_PRD_PORT=1433
 ```
 
 To add a second environment, append it to `DB_NAMES` (comma-separated) and add its vars:
 
 ```
-DB_NAMES=WILLIAMS_PRD,ACME_PRD
+DB_NAMES=CUSTOMER1_PRD,ACME_PRD
 
 DB_ACME_PRD_LABEL=Acme PRD
 DB_ACME_PRD_SERVER=acme-server.example.com
