@@ -26,8 +26,8 @@ Searches across workflow definitions and returns matching blocks with their team
 | `update` | Update | Update object block |
 | `create` | Insert Child | Creates a child record (older block type) |
 | `createnew0002` | Create Object | Create object block (QuickAction-based) |
-| `vote0007` | Get Approval | Approval block |
-| `vote` | Get Approval | Approval block — older block type, functionally equivalent to `vote0007` |
+| `vote0007` | Get Approval | Approval block (current) |
+| `vote` | Get Approval | Older approval block type, functionally equivalent to `vote0007`. Exists in legacy workflows (e.g. Software Installation Request (Legacy), New Computer Request (Legacy)). Both are returned when **Get Approval** is selected in the dropdown. Results may show 0 rows for `vote` blocks whose linked approval groups are inactive or no longer exist in ContactGroup. |
 
 > **Extended Task (advancedtask) team sources:** An Extended Task block can have two team assignments — a task-level teamblock and an OwnerTeam set via its QuickAction. Both are returned as separate rows: the teamblock team shows as `advancedtask` (Extended Task), and the QuickAction OwnerTeam shows as `advancedtask_qa` (Extended Task (QA)), indented as a sub-row beneath it.
 
