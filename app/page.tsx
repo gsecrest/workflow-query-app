@@ -253,8 +253,8 @@ export default function Home() {
             <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
               <span className="text-sm font-semibold text-gray-700">Results</span>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-gray-400">
-                  {rows.length} row{rows.length !== 1 ? "s" : ""}
+                <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
+                  {rows.length} {rows.length !== 1 ? "rows" : "row"}
                 </span>
                 {rows.length > 0 && (
                   <>
