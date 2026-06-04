@@ -4,6 +4,24 @@ echo === Workflow Query App - Windows Setup ===
 echo.
 
 :: ---------------------------------------------------------------
+:: Main Menu: Install or Uninstall
+:: ---------------------------------------------------------------
+echo What would you like to do?
+echo.
+echo   [1] Install
+echo   [2] Uninstall
+echo.
+set /p MAIN_OPTION="Enter option (1 or 2): "
+if "%MAIN_OPTION%"=="1" goto install
+if "%MAIN_OPTION%"=="2" goto uninstall_menu
+echo Invalid option. Please enter 1 or 2.
+pause
+exit /b 1
+
+:install
+echo.
+
+:: ---------------------------------------------------------------
 :: Step 0: Choose PM2 installation option
 :: ---------------------------------------------------------------
 echo PM2 Installation Options:
@@ -173,6 +191,88 @@ echo   npx pm2 status                         - check if app is running
 echo   npx pm2 logs workflow-query-app        - view app logs
 echo   npx pm2 restart workflow-query-app     - restart the app
 echo   npx pm2 stop workflow-query-app        - stop the app
+echo.
+pause
+exit /b 0
+
+:: ---------------------------------------------------------------
+:: Uninstall
+:: ---------------------------------------------------------------
+:uninstall_menu
+echo.
+echo Which PM2 option did you use during setup?
+echo.
+echo   [1] Global install (pm2 commands without npx)
+echo   [2] Local via npx (npx pm2 commands)
+echo.
+set /p UNINSTALL_OPTION="Enter option (1 or 2): "
+if "%UNINSTALL_OPTION%"=="1" goto uninstall_global
+if "%UNINSTALL_OPTION%"=="2" goto uninstall_local
+echo Invalid option. Please enter 1 or 2.
+pause
+exit /b 1
+
+:uninstall_global
+echo.
+echo Step 1: Stopping and removing PM2 process...
+call pm2 delete workflow-query-app
+if %errorlevel% neq 0 echo WARNING: Could not delete PM2 process. It may not be running.
+
+echo.
+echo Step 2: Removing Windows startup entry...
+call npx pm2-windows-startup uninstall
+if %errorlevel% neq 0 echo WARNING: Could not remove startup entry. It may not have been configured.
+
+echo.
+echo Step 3: Saving empty PM2 process list...
+call pm2 save
+if %errorlevel% neq 0 echo WARNING: pm2 save failed.
+
+echo.
+set /p REMOVE_PM2="Uninstall PM2 and pm2-windows-startup globally? (y/n): "
+if /i "%REMOVE_PM2%"=="y" (
+    echo Uninstalling PM2 globally...
+    call npm uninstall -g pm2 pm2-windows-startup
+    if %errorlevel% neq 0 echo WARNING: Global uninstall failed.
+)
+goto uninstall_folder
+
+:uninstall_local
+echo.
+echo Step 1: Stopping and removing PM2 process...
+call npx pm2 delete workflow-query-app
+if %errorlevel% neq 0 echo WARNING: Could not delete PM2 process. It may not be running.
+
+echo.
+echo Step 2: Saving empty PM2 process list...
+call npx pm2 save
+if %errorlevel% neq 0 echo WARNING: pm2 save failed.
+
+echo.
+echo No startup entry was created with Option 2 — nothing further to remove.
+
+:uninstall_folder
+echo.
+echo === PM2 cleanup complete ===
+echo.
+echo The app folder still exists at:
+echo   %~dp0
+echo.
+echo WARNING: Deleting this folder will also remove your .env.local file
+echo          which contains your database credentials.
+echo.
+set /p DELETE_FOLDER="Delete the app folder? (y/n): "
+if /i "%DELETE_FOLDER%"=="y" (
+    echo Deleting app folder...
+    cd /d "%TEMP%"
+    rd /s /q "%~dp0"
+    echo App folder deleted.
+) else (
+    echo App folder kept. You can delete it manually when ready.
+)
+
+echo.
+echo === Uninstall complete ===
 echo.
 pause
 exit /b 0
