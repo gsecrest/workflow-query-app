@@ -108,11 +108,15 @@ SELECT DISTINCT
     tv.TeamName
 INTO #TaskBlocks
 FROM #AllBlocks ab
-CROSS APPLY ab.BlockXml.nodes('block/blockProperties/property[name="teamblock"]/groups/group/param[name="team"]') p(prop)
+CROSS APPLY ab.BlockXml.nodes('block/blockProperties/property[name="teamblock"]/groups/group') g(grp)
 CROSS APPLY (VALUES (
-    LTRIM(RTRIM(p.prop.value('(value)[1]', 'nvarchar(255)')))
+    LTRIM(RTRIM(COALESCE(
+        NULLIF(g.grp.value('(param[name="team"]/value)[1]',   'nvarchar(255)'), ''),
+        NULLIF(g.grp.value('(param[name="teamEx"]/value)[1]', 'nvarchar(255)'), '')
+    )))
 )) tv (TeamName)
-WHERE tv.TeamName <> ''
+WHERE tv.TeamName IS NOT NULL
+  AND tv.TeamName <> ''
   AND tv.TeamName NOT LIKE '$(%'
   AND (@TeamName = '' OR tv.TeamName LIKE '%' + @TeamName + '%');
 

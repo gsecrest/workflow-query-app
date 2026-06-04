@@ -14,7 +14,7 @@ type Row = {
 type DbInfo = { key: string; label: string };
 
 const BLOCK_TYPES = ["", "task", "advancedtask", "update", "create", "notification", "quickaction", "createnew0002", "vote0007", "vote"];
-const BLOCK_TYPE_LABELS: Record<string, string> = { "createnew0002": "Create Object", "advancedtask": "Extended Task", "quickaction": "Quick Action" };
+const BLOCK_TYPE_LABELS: Record<string, string> = { "task": "Task", "createnew0002": "Create Object", "advancedtask": "Extended Task", "quickaction": "Quick Action" };
 const STATUSES = ["", "Published", "Design"];
 
 export default function Home() {
@@ -55,6 +55,22 @@ export default function Home() {
 
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
+
+  function sortRows(input: Row[]): Row[] {
+    const extendedTaskKeys = new Set(
+      input.filter(r => r.BlockType === "advancedtask")
+        .map(r => `${r.WorkflowName}|${r.BlockTitle}`)
+    );
+    return [...input].sort((a, b) => {
+      if (a.WorkflowName !== b.WorkflowName) return a.WorkflowName.localeCompare(b.WorkflowName);
+      const aTitle = a.BlockType === "quickaction" && extendedTaskKeys.has(`${a.WorkflowName}|${a.BlockTitle}`) ? a.BlockTitle : a.BlockTitle;
+      const bTitle = b.BlockType === "quickaction" && extendedTaskKeys.has(`${b.WorkflowName}|${b.BlockTitle}`) ? b.BlockTitle : b.BlockTitle;
+      if (aTitle !== bTitle) return aTitle.localeCompare(bTitle);
+      // advancedtask before quickaction, everything else after
+      const order = (r: Row) => r.BlockType === "advancedtask" ? 0 : r.BlockType === "quickaction" ? 1 : 2;
+      return order(a) - order(b);
+    });
+  }
   const [error, setError] = useState("");
   const [hasQueried, setHasQueried] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -91,7 +107,7 @@ export default function Home() {
         setError(data.error);
         setRows([]);
       } else {
-        setRows(data.rows);
+        setRows(sortRows(data.rows));
       }
     } catch {
       setError("Failed to reach the server.");
@@ -277,25 +293,39 @@ export default function Home() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {rows.map((row, i) => (
-                      <tr key={i} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3 text-gray-900">{row.WorkflowName}</td>
-                        <td className="px-4 py-3 text-gray-600">{row.DefVersion}</td>
-                        <td className="px-4 py-3">
-                          <StatusBadge status={row.RequestOfferingStatus} />
-                        </td>
-                        <td className="px-4 py-3 text-gray-900">{row.BlockTitle}</td>
-                        <td className="px-4 py-3">
-                          <BlockTypeBadge type={row.BlockType} />
-                        </td>
-                        <td className="px-4 py-3 text-gray-900">
-                          {row.TeamName}
-                          {(row.BlockType === "vote0007" || row.BlockType === "vote") && (
-                            <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-400">group</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                    {(() => {
+                      const extKeys = new Set(
+                        rows.filter(r => r.BlockType === "advancedtask")
+                          .map(r => `${r.WorkflowName}|${r.BlockTitle}`)
+                      );
+                      return rows.map((row, i) => {
+                        const isSubRow = row.BlockType === "quickaction" &&
+                          extKeys.has(`${row.WorkflowName}|${row.BlockTitle}`);
+                        return (
+                          <tr key={i} className={`hover:bg-gray-50 transition-colors${isSubRow ? " bg-gray-50/60" : ""}`}>
+                            <td className="px-4 py-3 text-gray-900">{row.WorkflowName}</td>
+                            <td className="px-4 py-3 text-gray-600">{row.DefVersion}</td>
+                            <td className="px-4 py-3">
+                              <StatusBadge status={row.RequestOfferingStatus} />
+                            </td>
+                            <td className="px-4 py-3 text-gray-900">
+                              {isSubRow
+                                ? <span className="flex items-center gap-1 text-gray-400 pl-4">↳ <span className="text-gray-900">{row.BlockTitle}</span></span>
+                                : row.BlockTitle}
+                            </td>
+                            <td className="px-4 py-3">
+                              <BlockTypeBadge type={row.BlockType} />
+                            </td>
+                            <td className="px-4 py-3 text-gray-900">
+                              {row.TeamName}
+                              {(row.BlockType === "vote0007" || row.BlockType === "vote") && (
+                                <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-400">group</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
                   </tbody>
                 </table>
               </div>
