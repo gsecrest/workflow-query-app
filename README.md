@@ -29,7 +29,7 @@ Searches across workflow definitions and returns matching blocks with their team
 | `vote0007` | Get Approval | Approval block |
 | `vote` | Get Approval | Approval block — older block type, functionally equivalent to `vote0007` |
 
-> **Extended Task (advancedtask) team sources:** An Extended Task block can have two team assignments — a task-level teamblock and an OwnerTeam set via its QuickAction. Both are returned as separate rows: the teamblock team shows as `advancedtask`, and the QuickAction OwnerTeam shows as `quickaction`.
+> **Extended Task (advancedtask) team sources:** An Extended Task block can have two team assignments — a task-level teamblock and an OwnerTeam set via its QuickAction. Both are returned as separate rows: the teamblock team shows as `advancedtask` (Extended Task), and the QuickAction OwnerTeam shows as `advancedtask_qa` (Extended Task (QA)), indented as a sub-row beneath it.
 
 All filters default to "all values" — leave any field blank to search across everything. The **Workflow Name** field supports multi-word partial search: each word is matched independently (AND logic), so `Ivanti Test` finds workflows containing both words anywhere in the name.
 
