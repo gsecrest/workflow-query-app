@@ -160,6 +160,10 @@ pm2 stop workflow-query-app             # stop the app
 
 ## Uninstalling
 
+The easiest way to uninstall is to run `uninstall-windows.bat` — it prompts for which PM2 option was used and handles all cleanup steps, including an option to delete the app folder.
+
+To uninstall manually:
+
 ### Option 1 — Global install
 
 ```bash
@@ -187,6 +191,8 @@ npx pm2 save
 ```
 
 No startup entry was created, so no further cleanup is needed.
+
+In both cases, delete the app folder to fully remove the app and `.env.local` credentials.
 
 Then delete the app folder from your machine. The `.env.local` file (with your DB credentials) is inside that folder and will be removed along with it.
 

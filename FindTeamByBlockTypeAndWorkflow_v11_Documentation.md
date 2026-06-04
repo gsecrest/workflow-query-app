@@ -185,6 +185,10 @@ npx pm2 stop workflow-query-app
 
 ### Uninstalling
 
+The easiest way to uninstall is to run `uninstall-windows.bat` — it prompts for which PM2 option was used and handles all cleanup, including an option to delete the app folder.
+
+To uninstall manually:
+
 **Option 1 — Global install:**
 ```
 pm2 delete workflow-query-app
