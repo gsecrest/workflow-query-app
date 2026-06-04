@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import sql from "mssql";
-import { pool, poolConnect } from "@/lib/db";
-import { workflowQuery } from "@/lib/workflow-query";
+import { getPool, defaultDbKey } from "@/lib/db";
+import { buildWorkflowQuery } from "@/lib/workflow-query";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -9,16 +9,19 @@ export async function GET(req: NextRequest) {
   const blockType    = searchParams.get("blockType")    ?? "";
   const teamName     = searchParams.get("teamName")     ?? "";
   const status       = searchParams.get("status")       ?? "";
+  const dbKey        = searchParams.get("db")           || defaultDbKey();
+  const words = workflowName.trim().split(/\s+/).filter(Boolean);
 
   try {
-    await poolConnect;
-    const result = await pool
+    const { pool, connect } = getPool(dbKey);
+    await connect;
+    const request = pool
       .request()
-      .input("wf", sql.NVarChar(255), workflowName)
       .input("bt", sql.NVarChar(50),  blockType)
       .input("tn", sql.NVarChar(255), teamName)
-      .input("st", sql.NVarChar(50),  status)
-      .query(workflowQuery);
+      .input("st", sql.NVarChar(50),  status);
+    words.forEach((word, i) => request.input(`wf${i}`, sql.NVarChar(255), word));
+    const result = await request.query(buildWorkflowQuery(words.length));
 
     const escape = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
     const headers = ["Workflow Name", "Version", "Offering Status", "Block Title", "Block Type", "Team Name"];

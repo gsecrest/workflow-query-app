@@ -1,5 +1,14 @@
-export const workflowQuery = `
-DECLARE @WorkflowName NVARCHAR(255) = @wf;
+export function buildWorkflowQuery(wordCount: number): string {
+  const nameFilter =
+    wordCount === 0
+      ? "1=1"
+      : Array.from({ length: wordCount }, (_, i) => `wt.Name LIKE '%' + @wf${i} + '%'`).join(" AND ");
+
+  return buildQuery(nameFilter);
+}
+
+function buildQuery(nameFilter: string): string {
+  return `
 DECLARE @BlockType    NVARCHAR(50)  = @bt;
 DECLARE @TeamName     NVARCHAR(255) = @tn;
 DECLARE @Status       NVARCHAR(50)  = @st;
@@ -30,7 +39,7 @@ IF OBJECT_ID('tempdb..#WorkflowOffering')    IS NOT NULL DROP TABLE #WorkflowOff
         ON wf.WorkflowTypeLink_RecID = wt.RecID
     WHERE wt.Name LIKE '%form'
       AND wt.Name NOT LIKE '%backup%'
-      AND (@WorkflowName = '' OR wt.Name LIKE '%' + @WorkflowName + '%')
+      AND (${nameFilter})
 )
 SELECT
     lv.WorkflowName,
@@ -164,23 +173,24 @@ SELECT
     b.DefVersion,
     ISNULL(wo.Status, 'No Offering') AS RequestOfferingStatus,
     b.BlockTitle,
-    b.BlockType,
+    CASE WHEN b.BlockType = 'advancedtask' THEN 'quickaction' ELSE b.BlockType END AS BlockType,
     tn.TeamName
 FROM #Blocks b
 JOIN frs_def_quick_actions qa WITH (NOLOCK) ON qa.Id = b.QAID
+CROSS APPLY (VALUES (CONVERT(nvarchar(max), qa.Definition))) qad (def)
 CROSS APPLY (VALUES (
-    CHARINDEX('"FieldName":"OwnerTeam"', qa.Definition)
+    CHARINDEX('"FieldName":"OwnerTeam"', qad.def)
 )) ownerPos (pos)
 CROSS APPLY (VALUES (
     CASE WHEN ownerPos.pos > 0
-         THEN CHARINDEX('"ExpressionText":"', qa.Definition, ownerPos.pos)
+         THEN CHARINDEX('"ExpressionText":"', qad.def, ownerPos.pos)
          ELSE 0
     END
 )) etPos (pos)
 CROSS APPLY (VALUES (
     CASE WHEN etPos.pos > 0
-         THEN LEFT(SUBSTRING(qa.Definition, etPos.pos + 18, 500),
-                   CHARINDEX('"', SUBSTRING(qa.Definition, etPos.pos + 18, 500)) - 1)
+         THEN LEFT(SUBSTRING(qad.def, etPos.pos + 18, 500),
+                   CHARINDEX('"', SUBSTRING(qad.def, etPos.pos + 18, 500)) - 1)
     END
 )) tn (TeamName)
 LEFT JOIN #WorkflowOffering wo ON wo.WorkflowId = b.WorkflowDefinitionRecID
@@ -188,8 +198,7 @@ WHERE tn.TeamName IS NOT NULL
   AND tn.TeamName <> ''
   AND tn.TeamName NOT LIKE '$(%'
   AND (@TeamName = '' OR tn.TeamName LIKE '%' + @TeamName + '%')
-  AND wo.Status IS NOT NULL
-  AND (@Status = '' OR wo.Status LIKE '%' + @Status + '%')
+  AND (@Status = '' OR ISNULL(wo.Status, 'No Offering') LIKE '%' + @Status + '%')
 
 UNION ALL
 
@@ -227,3 +236,4 @@ DROP TABLE #ApprovalGroupLookup;
 DROP TABLE #ApprovalBlocks;
 DROP TABLE #WorkflowOffering;
 `;
+}

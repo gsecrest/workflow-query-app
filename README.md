@@ -10,24 +10,70 @@ Searches across workflow definitions and returns matching blocks with their team
 |---|---|
 | Workflow Name | Name of the workflow |
 | Version | Latest definition version |
-| Offering Status | Status of the associated request offering: `Published` or `Design`. Only workflows linked to a request offering are returned — unlinked workflows are excluded from results. |
+| Offering Status | Status of the associated request offering (`Published`, `Design`, or `No Offering` for workflows not yet linked to a request offering) |
 | Block Title | Title of the matching block |
-| Block Type | `task`, `advancedtask`, `update`, `create`, `notification`, `quickaction`, `createnew0002`, `vote0007`, or `vote` |
+| Block Type | See block types table below |
 | Team / Group | Team assigned to the block, or approval group for `vote0007`/`vote` blocks (shown with a `group` tag) |
 
-All filters default to "all values" — leave any field blank to search across everything. When results are returned, **Copy to Clipboard** and **Export CSV** buttons appear in the results header. The clipboard copy uses tab-separated values so it pastes directly into Excel with columns aligned.
+### Block Types
+
+| Value | Display Label | Description |
+|---|---|---|
+| `task` | task | Standard task block |
+| `advancedtask` | Extended Task | Advanced task block (teamblock team assignment) |
+| `quickaction` | Quick Action | Quick Action block, or the OwnerTeam set via QuickAction on an Extended Task block |
+| `update` | update | Update object block |
+| `create` | create | Create block |
+| `createnew0002` | Create Object | Create object block (QuickAction-based) |
+| `notification` | notification | Notification block |
+| `vote0007` / `vote` | vote0007 / vote | Approval block |
+
+> **Extended Task (advancedtask) team sources:** An Extended Task block can have two team assignments — a task-level teamblock and an OwnerTeam set via its QuickAction. Both are returned as separate rows: the teamblock team shows as `advancedtask`, and the QuickAction OwnerTeam shows as `quickaction`.
+
+All filters default to "all values" — leave any field blank to search across everything. The **Workflow Name** field supports multi-word partial search: each word is matched independently (AND logic), so `Ivanti Test` finds workflows containing both words anywhere in the name.
+
+When results are returned, **Copy to Clipboard** and **Export CSV** buttons appear in the results header. The clipboard copy uses tab-separated values so it pastes directly into Excel with columns aligned.
 
 ## Setup
+
+### Single database
 
 Create a `.env.local` file in the project root:
 
 ```
-DB_SERVER=your-sql-server
-DB_DATABASE=your-database
-DB_USER=your-username
-DB_PASSWORD=your-password
-DB_PORT=1433
+DB_NAMES=MY_DB
+
+DB_MY_DB_LABEL=My Database
+DB_MY_DB_SERVER=your-sql-server
+DB_MY_DB_DATABASE=your-database
+DB_MY_DB_USER=your-username
+DB_MY_DB_PASSWORD=your-password
+DB_MY_DB_PORT=1433
 ```
+
+### Multiple databases
+
+Add each database as a separate entry under `DB_NAMES`:
+
+```
+DB_NAMES=WILLIAMS_PRD,ACME_PRD
+
+DB_WILLIAMS_PRD_LABEL=Williams PRD
+DB_WILLIAMS_PRD_SERVER=bis-prd-iaz.ivanticloud.com
+DB_WILLIAMS_PRD_DATABASE=IAMC_Williams_PRD_NA
+DB_WILLIAMS_PRD_USER=BIP_WILLIAMS
+DB_WILLIAMS_PRD_PASSWORD=your-password
+DB_WILLIAMS_PRD_PORT=31410
+
+DB_ACME_PRD_LABEL=Acme PRD
+DB_ACME_PRD_SERVER=acme-server.example.com
+DB_ACME_PRD_DATABASE=IAMC_Acme_PRD
+DB_ACME_PRD_USER=BIP_ACME
+DB_ACME_PRD_PASSWORD=your-password
+DB_ACME_PRD_PORT=1433
+```
+
+A **Database** dropdown appears in the UI. Switching databases reloads the Team / Group dropdown for that environment. The first entry in `DB_NAMES` is used as the default.
 
 Install dependencies and run the dev server:
 
@@ -42,9 +88,15 @@ Open [http://localhost:3000](http://localhost:3000).
 
 For production deployments on Windows, the database password should be encrypted with Windows DPAPI so it is not stored in plaintext. The encrypted value is tied to your Windows user account — it cannot be decrypted on any other machine or user account.
 
-**If you are using `setup-windows.bat`:** encryption is handled automatically. Just put `DB_PASSWORD=your-plaintext-password` in `.env.local` and run the script — it will encrypt the value, replace the line with `DB_PASSWORD_ENCRYPTED=<encrypted>`, and remove the plaintext before building the app.
+Use `DB_<KEY>_PASSWORD_ENCRYPTED` in place of `DB_<KEY>_PASSWORD` for each database:
 
-**To encrypt manually** (e.g. to re-encrypt on a new machine, or if not using the `.bat`), run this in PowerShell on the Windows machine that will run the app:
+```
+DB_WILLIAMS_PRD_PASSWORD_ENCRYPTED=<encrypted value>
+```
+
+**If you are using `setup-windows.bat`:** encryption is handled automatically. Just put `DB_<KEY>_PASSWORD=your-plaintext-password` in `.env.local` and run the script — it will encrypt the value and replace the plaintext before building the app.
+
+**To encrypt manually**, run this in PowerShell on the Windows machine that will run the app:
 
 ```powershell
 Add-Type -AssemblyName System.Security
@@ -57,17 +109,9 @@ Add-Type -AssemblyName System.Security
 )
 ```
 
-Copy the output and update `.env.local`:
+Copy the output into `.env.local` as `DB_<KEY>_PASSWORD_ENCRYPTED=<paste here>`.
 
-```
-DB_SERVER=your-sql-server
-DB_DATABASE=your-database
-DB_USER=your-username
-DB_PASSWORD_ENCRYPTED=<paste encrypted value here>
-DB_PORT=1433
-```
-
-The app decrypts the password at startup via `lib/db-password.ts` using `spawnSync` and PowerShell DPAPI. If `DB_PASSWORD_ENCRYPTED` is not set, it falls back to `DB_PASSWORD` for local dev.
+The app decrypts passwords at startup via `lib/db.ts` using `spawnSync` and PowerShell DPAPI. If `DB_<KEY>_PASSWORD_ENCRYPTED` is not set, it falls back to `DB_<KEY>_PASSWORD` for local dev.
 
 ## Windows Deployment (no terminal required)
 
@@ -75,11 +119,11 @@ To run the app in the background on Windows without keeping a terminal open, use
 
 **Prerequisites:**
 - [Node.js](https://nodejs.org) installed
-- `.env.local` file created in the project root with `DB_PASSWORD=your-plaintext-password` — **the script will not proceed without it, and will encrypt the password automatically before building**
+- `.env.local` file created in the project root with `DB_<KEY>_PASSWORD=your-plaintext-password` — **the script will not proceed without it, and will encrypt the password automatically before building**
 
 **Steps:**
 1. Clone the repository to the Windows machine
-2. Create `.env.local` with your database credentials (use `DB_PASSWORD=` — the script encrypts it)
+2. Create `.env.local` with your database credentials (use `DB_<KEY>_PASSWORD=` — the script encrypts it)
 3. Right-click `setup-windows.bat` and select **Run as Administrator**
 
 The app will be available at [http://localhost:3000](http://localhost:3000) and will start automatically after every reboot.
@@ -128,9 +172,21 @@ Use it to test filter changes, inspect raw results, or verify query behaviour be
 
 | Route | Method | Description |
 |---|---|---|
+| `/api/databases` | GET | List available databases from `DB_NAMES` |
 | `/api/query` | POST | Run the workflow block query with filters |
 | `/api/teams` | GET | Fetch service desk teams and approval groups for the Team / Group dropdown |
 | `/api/export/workflow-results.csv` | GET | Download results as a CSV file |
+
+### GET `/api/databases`
+
+**Response:**
+```json
+{
+  "databases": [
+    { "key": "WILLIAMS_PRD", "label": "Williams PRD" }
+  ]
+}
+```
 
 ### POST `/api/query`
 
@@ -140,9 +196,12 @@ Use it to test filter changes, inspect raw results, or verify query behaviour be
   "workflowName": "",
   "blockType": "",
   "teamName": "",
-  "status": ""
+  "status": "",
+  "db": "WILLIAMS_PRD"
 }
 ```
+
+`workflowName` supports multi-word partial search — each space-separated word is applied as a separate `LIKE` condition (AND logic). `db` defaults to the first entry in `DB_NAMES` if omitted.
 
 **Response:**
 ```json
@@ -153,12 +212,20 @@ Use it to test filter changes, inspect raw results, or verify query behaviour be
       "DefVersion": "5",
       "RequestOfferingStatus": "Published",
       "BlockTitle": "...",
-      "BlockType": "task",   // or advancedtask, update, create, notification, quickaction, createnew0002, vote0007, vote
+      "BlockType": "task",
       "TeamName": "..."
     }
   ]
 }
 ```
+
+### GET `/api/teams?db=WILLIAMS_PRD`
+
+`db` defaults to the first entry in `DB_NAMES` if omitted.
+
+### GET `/api/export/workflow-results.csv`
+
+Accepts the same filter params as `/api/query` (`workflowName`, `blockType`, `teamName`, `status`, `db`) as query string parameters.
 
 ## Project Structure
 
@@ -168,15 +235,16 @@ app/
   layout.tsx        — Root layout
   globals.css       — Global styles
   api/
-    query/route.ts           — Workflow block query endpoint
-    teams/route.ts           — Active teams endpoint
+    databases/route.ts           — List available databases
+    query/route.ts               — Workflow block query endpoint
+    teams/route.ts               — Active teams endpoint
     export/
       workflow-results.csv/
-        route.ts             — CSV export endpoint
+        route.ts                 — CSV export endpoint
 lib/
-  db.ts             — Shared connection pool and DB config
-  db-password.ts    — DPAPI password decryption utility
-  workflow-query.ts — Shared SQL query (used by query and export routes)
+  db.ts             — Multi-database connection pool management
+  db-password.ts    — DPAPI password decryption utility (legacy single-db reference)
+  workflow-query.ts — SQL query builder (used by query and export routes)
 ```
 
 ## Troubleshooting
@@ -189,7 +257,7 @@ Run `pm2 logs workflow-query-app --lines 50` to see the crash output, then check
 |---|---|---|
 | `SyntaxError: missing ) after argument list` in `node_modules/.bin/next` | PM2 tried to run the Unix bash wrapper instead of a Node.js file | Fixed in `ecosystem.config.js` — `script` now points to `node_modules/next/dist/bin/next` |
 | DB connection errors or missing env vars | `.env.local` is missing or credentials are wrong | Create `.env.local` in the project root with the correct values (see Setup above) |
-| `Login failed for user` | `DB_PASSWORD_ENCRYPTED` key name wrong in `.env.local` | Ensure the key is `DB_PASSWORD_ENCRYPTED`, not `DB_PASSWORD` |
+| `Login failed for user` | `DB_<KEY>_PASSWORD_ENCRYPTED` key name wrong in `.env.local` | Ensure the key matches the pattern `DB_<KEY>_PASSWORD_ENCRYPTED` |
 | `Timeout: Request failed to complete in 15000ms` | Default mssql request timeout too short for large datasets | Already fixed in `lib/db.ts` — `requestTimeout` is set to 60s |
 
 ### PM2 config changes not taking effect

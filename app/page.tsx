@@ -11,10 +11,15 @@ type Row = {
   TeamName: string;
 };
 
+type DbInfo = { key: string; label: string };
+
 const BLOCK_TYPES = ["", "task", "advancedtask", "update", "create", "notification", "quickaction", "createnew0002", "vote0007", "vote"];
+const BLOCK_TYPE_LABELS: Record<string, string> = { "createnew0002": "Create Object", "advancedtask": "Extended Task", "quickaction": "Quick Action" };
 const STATUSES = ["", "Published", "Design"];
 
 export default function Home() {
+  const [db, setDb] = useState("");
+  const [databases, setDatabases] = useState<DbInfo[]>([]);
   const [workflowName, setWorkflowName] = useState("");
   const [blockType, setBlockType] = useState("");
   const [teamName, setTeamName] = useState("");
@@ -24,14 +29,29 @@ export default function Home() {
   const [teamsLoading, setTeamsLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/teams")
+    fetch("/api/databases")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.databases?.length) {
+          setDatabases(data.databases);
+          setDb(data.databases[0].key);
+        }
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!db) return;
+    setTeamsLoading(true);
+    setTeams([]);
+    setApprovalGroups([]);
+    fetch(`/api/teams?db=${encodeURIComponent(db)}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.teams) setTeams(data.teams);
         if (data.approvalGroups) setApprovalGroups(data.approvalGroups);
       })
       .finally(() => setTeamsLoading(false));
-  }, []);
+  }, [db]);
 
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
@@ -39,7 +59,7 @@ export default function Home() {
   const [hasQueried, setHasQueried] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const exportHref = `/api/export/workflow-results.csv?${new URLSearchParams({ workflowName, blockType, teamName, status }).toString()}`;
+  const exportHref = `/api/export/workflow-results.csv?${new URLSearchParams({ workflowName, blockType, teamName, status, db }).toString()}`;
 
   function copyToClipboard() {
     const headers = ["Workflow Name", "Version", "Offering Status", "Block Title", "Block Type", "Team Name"];
@@ -64,7 +84,7 @@ export default function Home() {
       const res = await fetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workflowName, blockType, teamName, status }),
+        body: JSON.stringify({ workflowName, blockType, teamName, status, db }),
       });
       const data = await res.json();
       if (data.error) {
@@ -91,6 +111,14 @@ export default function Home() {
     setError("");
   }
 
+  function handleDbChange(key: string) {
+    setDb(key);
+    setTeamName("");
+    setRows([]);
+    setHasQueried(false);
+    setError("");
+  }
+
   return (
     <main className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-6xl mx-auto">
@@ -104,7 +132,22 @@ export default function Home() {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-800 uppercase tracking-wide mb-1">
+                Database
+              </label>
+              <select
+                value={db}
+                onChange={(e) => handleDbChange(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                {databases.map((d) => (
+                  <option key={d.key} value={d.key}>{d.label}</option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-gray-800 uppercase tracking-wide mb-1">
                 Workflow Name
@@ -129,7 +172,7 @@ export default function Home() {
               >
                 {BLOCK_TYPES.map((bt) => (
                   <option key={bt} value={bt}>
-                    {bt === "" ? "All block types" : bt}
+                    {bt === "" ? "All block types" : (BLOCK_TYPE_LABELS[bt] ?? bt)}
                   </option>
                 ))}
               </select>
@@ -406,7 +449,7 @@ function BlockTypeBadge({ type }: { type: string }) {
       : "bg-gray-100 text-gray-500";
   return (
     <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${color}`}>
-      {type}
+      {BLOCK_TYPE_LABELS[type] ?? type}
     </span>
   );
 }

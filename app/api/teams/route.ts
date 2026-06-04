@@ -1,9 +1,13 @@
-import { NextResponse } from "next/server";
-import { pool, poolConnect } from "@/lib/db";
+import { NextRequest, NextResponse } from "next/server";
+import { getPool, defaultDbKey } from "@/lib/db";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const dbKey = searchParams.get("db") || defaultDbKey();
+
   try {
-    await poolConnect;
+    const { pool, connect } = getPool(dbKey);
+    await connect;
 
     const [teamsResult, groupsResult] = await Promise.all([
       pool.request().query(`
@@ -26,7 +30,7 @@ export async function GET() {
       `),
     ]);
 
-    const teams         = teamsResult.recordset.map((r: { Team: string }) => r.Team);
+    const teams          = teamsResult.recordset.map((r: { Team: string }) => r.Team);
     const approvalGroups = groupsResult.recordset.map((r: { Name: string }) => r.Name);
 
     return NextResponse.json({ teams, approvalGroups });
