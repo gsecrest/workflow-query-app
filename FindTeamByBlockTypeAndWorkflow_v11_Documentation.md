@@ -185,7 +185,11 @@ npx pm2 stop workflow-query-app
 
 ### Uninstalling
 
-The easiest way to uninstall is to run `uninstall-windows.bat` — it prompts for which PM2 option was used and handles all cleanup, including an option to delete the app folder.
+The easiest way to uninstall is to either:
+- Run `setup-windows.bat` and choose **[2] Uninstall** from the main menu, or
+- Run the standalone `uninstall-windows.bat`
+
+Both prompt for which PM2 option was used and handle all cleanup, including an option to delete the app folder.
 
 To uninstall manually:
 
@@ -212,7 +216,7 @@ In both cases, delete the app folder to remove the app and `.env.local` credenti
 
 | Version | Changes |
 |---|---|
-| v11 | Added Installation & Setup section covering .env.local multi-DB format, dev server setup, and Windows deployment with Option 1 (global PM2, auto-start on boot) and Option 2 (local via npx). setup-windows.bat updated to prompt for install option and handle new multi-DB password encryption. |
+| v11 | Added Installation & Setup section. setup-windows.bat updated with Install/Uninstall main menu, PM2 global and local options, and multi-DB password encryption. Added standalone uninstall-windows.bat. |
 | v10 | SQL query performance optimizations: BlockType computed once per block; QuickAction definitions pre-materialised per unique QAID; OwnerTeam extraction uses single combined CHARINDEX; WorkflowOffering scoped to matched workflows only. |
 | v9 | Multi-database support; Extended Task (QA) sub-row display; block type labels (Task, Extended Task, Insert Child, Create Object, Get Approval, Update, Quick Action); multi-word workflow name search; No Offering workflows now shown; fixed QuickAction OwnerTeam resolution for long `ntext` definitions; `vote` and `vote0007` merged under Get Approval filter |
 | v8 | Previous version |

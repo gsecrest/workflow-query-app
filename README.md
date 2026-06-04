@@ -118,7 +118,7 @@ The app decrypts passwords at startup via `lib/db.ts` using `spawnSync` and Powe
 
 ## Windows Deployment (no terminal required)
 
-To run the app in the background on Windows without keeping a terminal open, use the included `setup-windows.bat` script. It installs PM2, builds the app for production, and configures it to start automatically on Windows boot.
+To run the app in the background on Windows without keeping a terminal open, use the included `setup-windows.bat` script. When launched it presents a main menu — choose **Install** or **Uninstall**. It builds the app for production, encrypts any plaintext passwords in `.env.local`, and configures PM2.
 
 **Prerequisites:**
 - [Node.js](https://nodejs.org) installed
@@ -127,9 +127,11 @@ To run the app in the background on Windows without keeping a terminal open, use
 **Steps:**
 1. Clone the repository to the Windows machine
 2. Create `.env.local` with your database credentials (use `DB_<KEY>_PASSWORD=` — the script encrypts it)
-3. Right-click `setup-windows.bat` and select **Run as Administrator**
+3. Right-click `setup-windows.bat` and select **Run as Administrator** (required for Option 1 / global install)
+4. Choose **[1] Install** from the main menu
+5. Choose PM2 Option 1 (global) or Option 2 (local/npx)
 
-The app will be available at [http://localhost:3000](http://localhost:3000) and will start automatically after every reboot.
+The app will be available at [http://localhost:3000](http://localhost:3000).
 
 ### PM2 Installation Options
 
@@ -160,7 +162,11 @@ pm2 stop workflow-query-app             # stop the app
 
 ## Uninstalling
 
-The easiest way to uninstall is to run `uninstall-windows.bat` — it prompts for which PM2 option was used and handles all cleanup steps, including an option to delete the app folder.
+The easiest way to uninstall is to either:
+- Run `setup-windows.bat` and choose **[2] Uninstall** from the main menu, or
+- Run the standalone `uninstall-windows.bat`
+
+Both prompt for which PM2 option was used and handle all cleanup, including an option to delete the app folder.
 
 To uninstall manually:
 
