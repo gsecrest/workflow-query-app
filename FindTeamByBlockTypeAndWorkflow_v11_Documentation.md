@@ -17,7 +17,7 @@ The app provides four search filters. All filters are optional — leave any fie
 | **Database** | Select which Ivanti environment to query (e.g. Customer1 PRD). Changing the database reloads the Team / Group dropdown for that environment. |
 | **Workflow Name** | Partial name search. Supports multiple words — each word is matched independently, so typing `Ivanti Test` finds workflows containing both words anywhere in the name. |
 | **Block Type** | Filter by the type of workflow block. See Block Types section below. |
-| **Status** | Filter by the request offering status: Published, Design, or leave blank for all. |
+| **Status** | Filter by the request offering status: Design, Published, or leave blank for all. |
 
 Click **Run Query** to execute. Click **Clear** to reset all filters and results.
 
@@ -221,6 +221,7 @@ In both cases, delete the app folder to remove the app and `.env.local` credenti
 
 | Version | Changes |
 |---|---|
+| v13 | Status dropdown alphabetized (Design, Published). |
 | v12 | Block Type dropdown alphabetized by display label; Extended Task (QA) added as a selectable dropdown option; row count displayed as a prominent badge in the results header. |
 | v11 | Added Installation & Setup section. setup-windows.bat updated with Install/Uninstall main menu, PM2 global and local options, and multi-DB password encryption. Added standalone uninstall-windows.bat. |
 | v10 | SQL query performance optimizations: BlockType computed once per block; QuickAction definitions pre-materialised per unique QAID; OwnerTeam extraction uses single combined CHARINDEX; WorkflowOffering scoped to matched workflows only. |
