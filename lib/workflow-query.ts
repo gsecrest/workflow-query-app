@@ -69,7 +69,8 @@ SELECT
 INTO #AllBlocks
 FROM #FilteredWorkflows fw
 CROSS APPLY fw.XmlData.nodes('/scenario/blocks/block') b(block)
-WHERE (@BlockType = '' OR LTRIM(RTRIM(b.block.value('(type)[1]', 'nvarchar(50)'))) = @BlockType);
+WHERE (@BlockType = '' OR LTRIM(RTRIM(b.block.value('(type)[1]', 'nvarchar(50)'))) = @BlockType
+    OR (@BlockType = 'vote0007' AND LTRIM(RTRIM(b.block.value('(type)[1]', 'nvarchar(50)'))) = 'vote'));
 
 CREATE CLUSTERED INDEX IX_AB_RecID    ON #AllBlocks (WorkflowDefinitionRecID);
 -- OPT 1: Non-clustered index on BlockType speeds up PATH 3 filter.
