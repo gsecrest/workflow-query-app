@@ -14,7 +14,7 @@ type Row = {
 type DbInfo = { key: string; label: string };
 
 const BLOCK_TYPES = ["", "task", "advancedtask", "update", "create", "notification", "quickaction", "createnew0002", "vote0007", "vote"];
-const BLOCK_TYPE_LABELS: Record<string, string> = { "task": "Task", "createnew0002": "Create Object", "advancedtask": "Extended Task", "quickaction": "Quick Action" };
+const BLOCK_TYPE_LABELS: Record<string, string> = { "task": "Task", "createnew0002": "Create Object", "advancedtask": "Extended Task", "advancedtask_qa": "Extended Task (QA)", "quickaction": "Quick Action" };
 const STATUSES = ["", "Published", "Design"];
 
 export default function Home() {
@@ -67,7 +67,7 @@ export default function Home() {
       const bTitle = b.BlockType === "quickaction" && extendedTaskKeys.has(`${b.WorkflowName}|${b.BlockTitle}`) ? b.BlockTitle : b.BlockTitle;
       if (aTitle !== bTitle) return aTitle.localeCompare(bTitle);
       // advancedtask before quickaction, everything else after
-      const order = (r: Row) => r.BlockType === "advancedtask" ? 0 : r.BlockType === "quickaction" ? 1 : 2;
+      const order = (r: Row) => r.BlockType === "advancedtask" ? 0 : r.BlockType === "advancedtask_qa" ? 1 : 2;
       return order(a) - order(b);
     });
   }
@@ -299,7 +299,7 @@ export default function Home() {
                           .map(r => `${r.WorkflowName}|${r.BlockTitle}`)
                       );
                       return rows.map((row, i) => {
-                        const isSubRow = row.BlockType === "quickaction" &&
+                        const isSubRow = row.BlockType === "advancedtask_qa" &&
                           extKeys.has(`${row.WorkflowName}|${row.BlockTitle}`);
                         return (
                           <tr key={i} className={`hover:bg-gray-50 transition-colors${isSubRow ? " bg-gray-50/60" : ""}`}>

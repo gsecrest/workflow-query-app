@@ -177,7 +177,7 @@ SELECT
     b.DefVersion,
     ISNULL(wo.Status, 'No Offering') AS RequestOfferingStatus,
     b.BlockTitle,
-    CASE WHEN b.BlockType = 'advancedtask' THEN 'quickaction' ELSE b.BlockType END AS BlockType,
+    CASE WHEN b.BlockType = 'advancedtask' THEN 'advancedtask_qa' ELSE b.BlockType END AS BlockType,
     tn.TeamName
 FROM #Blocks b
 JOIN frs_def_quick_actions qa WITH (NOLOCK) ON qa.Id = b.QAID
