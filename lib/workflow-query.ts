@@ -16,13 +16,13 @@ DECLARE @Status       NVARCHAR(50)  = @st;
 IF OBJECT_ID('tempdb..#FilteredWorkflows')   IS NOT NULL DROP TABLE #FilteredWorkflows;
 IF OBJECT_ID('tempdb..#AllBlocks')           IS NOT NULL DROP TABLE #AllBlocks;
 IF OBJECT_ID('tempdb..#Blocks')              IS NOT NULL DROP TABLE #Blocks;
+IF OBJECT_ID('tempdb..#QADefs')              IS NOT NULL DROP TABLE #QADefs;
 IF OBJECT_ID('tempdb..#TaskBlocks')          IS NOT NULL DROP TABLE #TaskBlocks;
 IF OBJECT_ID('tempdb..#ApprovalGroupLookup') IS NOT NULL DROP TABLE #ApprovalGroupLookup;
 IF OBJECT_ID('tempdb..#ApprovalBlocks')      IS NOT NULL DROP TABLE #ApprovalBlocks;
 IF OBJECT_ID('tempdb..#WorkflowOffering')    IS NOT NULL DROP TABLE #WorkflowOffering;
 
--- OPT 2: Filter pushed into the CTE so ROW_NUMBER() only runs over *form
--- workflows that match the name filter, not the entire definition table.
+-- Filter pushed into the CTE so ROW_NUMBER() only runs over matching workflows.
 ;WITH LatestVersions AS (
     SELECT
         wf.RecID,
@@ -56,29 +56,26 @@ WHERE lv.rn = 1;
 
 CREATE CLUSTERED INDEX IX_FW_RecID ON #FilteredWorkflows (WorkflowDefinitionRecID);
 
--- Single XML shred pass over all blocks; PATH-specific steps below read the
--- stored fragment instead of re-shredding the full document.
--- No DISTINCT: XML type is not comparable; dedup happens at the PATH steps.
+-- Single XML shred pass; BlockType computed once via CROSS APPLY to avoid
+-- evaluating the same XPath twice in SELECT and WHERE.
 SELECT
     fw.WorkflowName,
     fw.WorkflowDefinitionRecID,
     fw.DefVersion,
     LTRIM(RTRIM(b.block.value('(title)[1]', 'nvarchar(255)'))) AS BlockTitle,
-    LTRIM(RTRIM(b.block.value('(type)[1]',  'nvarchar(50)')))  AS BlockType,
+    bt.BlockType,
     b.block.query('.')                                          AS BlockXml
 INTO #AllBlocks
 FROM #FilteredWorkflows fw
 CROSS APPLY fw.XmlData.nodes('/scenario/blocks/block') b(block)
-WHERE (@BlockType = '' OR LTRIM(RTRIM(b.block.value('(type)[1]', 'nvarchar(50)'))) = @BlockType
-    OR (@BlockType = 'vote0007' AND LTRIM(RTRIM(b.block.value('(type)[1]', 'nvarchar(50)'))) = 'vote'));
+CROSS APPLY (VALUES (LTRIM(RTRIM(b.block.value('(type)[1]', 'nvarchar(50)'))))) bt(BlockType)
+WHERE (@BlockType = '' OR bt.BlockType = @BlockType
+    OR (@BlockType = 'vote0007' AND bt.BlockType = 'vote'));
 
 CREATE CLUSTERED INDEX IX_AB_RecID    ON #AllBlocks (WorkflowDefinitionRecID);
--- OPT 1: Non-clustered index on BlockType speeds up PATH 3 filter.
 CREATE NONCLUSTERED INDEX IX_AB_BlockType ON #AllBlocks (BlockType);
 
--- PATH 1: QuickAction-based blocks (advancedtask, update, create, notification, quickaction, createnew0002)
--- QAID stored as uniqueidentifier so the JOIN to frs_def_quick_actions.Id is
--- type-matched and sargable.
+-- PATH 1: QuickAction-based blocks.
 SELECT DISTINCT
     ab.WorkflowName,
     ab.WorkflowDefinitionRecID,
@@ -93,13 +90,19 @@ FROM #AllBlocks ab
 CROSS APPLY ab.BlockXml.nodes('block/blockProperties/property[name="QuickAction"]') q(qaprop);
 
 CREATE CLUSTERED INDEX IX_Blocks_QAID  ON #Blocks (QAID);
--- OPT 5: Non-clustered index on WorkflowDefinitionRecID speeds up the final
--- LEFT JOIN to #WorkflowOffering.
 CREATE NONCLUSTERED INDEX IX_Blocks_RecID ON #Blocks (WorkflowDefinitionRecID);
 
--- PATH 2: Task blocks (teamblock property)
--- CROSS APPLY (VALUES) computes TeamName once instead of evaluating the same
--- XPath three times in WHERE.
+-- Pre-materialise QuickAction definitions cast from ntext to nvarchar(max) once
+-- per unique QAID so the conversion is not repeated for each workflow row.
+SELECT DISTINCT b.QAID, CONVERT(nvarchar(max), qa.Definition) AS def
+INTO #QADefs
+FROM #Blocks b
+JOIN frs_def_quick_actions qa WITH (NOLOCK) ON qa.Id = b.QAID;
+
+CREATE CLUSTERED INDEX IX_QD_QAID ON #QADefs (QAID);
+
+-- PATH 2: Task blocks (teamblock property).
+-- COALESCE over team/teamEx so either param is captured.
 SELECT DISTINCT
     ab.WorkflowName,
     ab.WorkflowDefinitionRecID,
@@ -123,9 +126,7 @@ WHERE tv.TeamName IS NOT NULL
 
 CREATE CLUSTERED INDEX IX_TaskBlocks_RecID ON #TaskBlocks (WorkflowDefinitionRecID);
 
--- OPT 4: Pre-materialise only the relevant ContactGroup rows (Service Request
--- Approval groups) so PATH 3 joins a small indexed temp table instead of the
--- full ContactGroup table.
+-- Pre-materialise active Service Request Approval groups.
 SELECT RecId, Name
 INTO #ApprovalGroupLookup
 FROM ContactGroup WITH (NOLOCK)
@@ -134,11 +135,7 @@ WHERE Status = 'Active'
 
 CREATE CLUSTERED INDEX IX_AGL_RecId ON #ApprovalGroupLookup (RecId);
 
--- PATH 3: Approval blocks (vote0007, vote)
--- Extracts the approver contact group GUID and joins to #ApprovalGroupLookup.
--- OPT 3: UPPER() removed from the JOIN column — on a CI collation the index
--- on RecId is now sargable. UPPER() is kept on the XML-extracted value only
--- since XML source casing is not guaranteed.
+-- PATH 3: Approval blocks (vote0007, vote).
 SELECT DISTINCT
     ab.WorkflowName,
     ab.WorkflowDefinitionRecID,
@@ -159,8 +156,7 @@ WHERE ab.BlockType IN ('vote0007', 'vote')
 
 CREATE CLUSTERED INDEX IX_ApprovalBlocks_RecID ON #ApprovalBlocks (WorkflowDefinitionRecID);
 
--- Materialise WorkflowOffering once; a CTE would re-execute the 3-table join
--- for each UNION branch.
+-- Scope WorkflowOffering to only workflows in #FilteredWorkflows to reduce size.
 SELECT DISTINCT
     UPPER(fp.WorkflowId) AS WorkflowId,
     srt.Status
@@ -169,10 +165,16 @@ FROM ServiceReqFulfillmentPlan fp WITH (NOLOCK)
 JOIN FusionLink fl WITH (NOLOCK)
     ON  fl.TargetID         = fp.RecId
     AND fl.RelationshipName = 'ServiceReqTemplateAssociatedServiceReqFulfillmentP'
-JOIN ServiceReqTemplate srt WITH (NOLOCK) ON srt.RecId = fl.SourceID;
+JOIN ServiceReqTemplate srt WITH (NOLOCK) ON srt.RecId = fl.SourceID
+WHERE EXISTS (
+    SELECT 1 FROM #FilteredWorkflows fw
+    WHERE fw.WorkflowDefinitionRecID = UPPER(fp.WorkflowId)
+);
 
 CREATE CLUSTERED INDEX IX_WO_WorkflowId ON #WorkflowOffering (WorkflowId);
 
+-- PATH 1 final SELECT: single combined CHARINDEX finds "OwnerTeam","ExpressionText":"
+-- in one pass, eliminating the two-step search and the OwnerTeam_Valid false-match risk.
 SELECT
     b.WorkflowName,
     b.DefVersion,
@@ -181,21 +183,14 @@ SELECT
     CASE WHEN b.BlockType = 'advancedtask' THEN 'advancedtask_qa' ELSE b.BlockType END AS BlockType,
     tn.TeamName
 FROM #Blocks b
-JOIN frs_def_quick_actions qa WITH (NOLOCK) ON qa.Id = b.QAID
-CROSS APPLY (VALUES (CONVERT(nvarchar(max), qa.Definition))) qad (def)
+JOIN #QADefs qad ON qad.QAID = b.QAID
 CROSS APPLY (VALUES (
-    CHARINDEX('"FieldName":"OwnerTeam"', qad.def)
+    CHARINDEX('"FieldName":"OwnerTeam","ExpressionText":"', qad.def)
 )) ownerPos (pos)
 CROSS APPLY (VALUES (
     CASE WHEN ownerPos.pos > 0
-         THEN CHARINDEX('"ExpressionText":"', qad.def, ownerPos.pos)
-         ELSE 0
-    END
-)) etPos (pos)
-CROSS APPLY (VALUES (
-    CASE WHEN etPos.pos > 0
-         THEN LEFT(SUBSTRING(qad.def, etPos.pos + 18, 500),
-                   CHARINDEX('"', SUBSTRING(qad.def, etPos.pos + 18, 500)) - 1)
+         THEN LEFT(SUBSTRING(qad.def, ownerPos.pos + 42, 500),
+                   CHARINDEX('"', SUBSTRING(qad.def, ownerPos.pos + 42, 500)) - 1)
     END
 )) tn (TeamName)
 LEFT JOIN #WorkflowOffering wo ON wo.WorkflowId = b.WorkflowDefinitionRecID
@@ -236,6 +231,7 @@ ORDER BY WorkflowName, BlockType, BlockTitle;
 DROP TABLE #FilteredWorkflows;
 DROP TABLE #AllBlocks;
 DROP TABLE #Blocks;
+DROP TABLE #QADefs;
 DROP TABLE #TaskBlocks;
 DROP TABLE #ApprovalGroupLookup;
 DROP TABLE #ApprovalBlocks;
