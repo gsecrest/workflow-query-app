@@ -1,4 +1,4 @@
-# Find Team by Block Type & Workflow — Documentation v9
+# Find Team by Block Type & Workflow — Documentation v10
 
 ## Overview
 
@@ -113,5 +113,6 @@ Workflows with `No Offering` status are included in results — previously these
 
 | Version | Changes |
 |---|---|
+| v10 | SQL query performance optimizations: BlockType computed once per block (eliminates duplicate XPath evaluation); QuickAction definitions pre-materialised per unique QAID (eliminates repeated ntext casts); OwnerTeam extraction uses a single combined CHARINDEX search (more precise, fewer operations); WorkflowOffering scoped to matched workflows only |
 | v9 | Multi-database support; Extended Task (QA) sub-row display; block type labels (Task, Extended Task, Insert Child, Create Object, Get Approval, Update, Quick Action); multi-word workflow name search; No Offering workflows now shown; fixed QuickAction OwnerTeam resolution for long `ntext` definitions; `vote` and `vote0007` merged under Get Approval filter |
 | v8 | Previous version |
