@@ -13,7 +13,7 @@ type Row = {
 
 type DbInfo = { key: string; label: string };
 
-const BLOCK_TYPES = ["", "createnew0002", "advancedtask", "vote0007", "create", "quickaction", "task", "update"];
+const BLOCK_TYPES = ["", "createnew0002", "advancedtask", "advancedtask_qa", "vote0007", "create", "quickaction", "task", "update"];
 const BLOCK_TYPE_LABELS: Record<string, string> = { "task": "Task", "update": "Update", "create": "Insert Child", "createnew0002": "Create Object", "advancedtask": "Extended Task", "advancedtask_qa": "Extended Task (QA)", "quickaction": "Quick Action", "vote0007": "Get Approval", "vote": "Get Approval" };
 const STATUSES = ["", "Published", "Design"];
 
