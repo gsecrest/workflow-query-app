@@ -151,36 +151,39 @@ npm run dev       # starts the dev server at http://localhost:3000
 
 ### Windows Deployment (Run in Background / Auto-start on Boot)
 
-Use `setup-windows.bat` (run as Administrator for Option 1). When prompted, choose:
+Use `setup-windows.bat` to install, configure, or uninstall the app. When launched it shows a main menu:
 
-**Option 1 — Global install (recommended for production)**
-- Installs PM2 system-wide
-- App starts automatically on Windows boot
-- Requires Administrator
-- Use plain `pm2` commands
+```
+[1] Install
+[2] Uninstall
+```
 
-**Option 2 — Local via npx (no global install)**
-- No system-wide install required
-- App does **not** start automatically on boot — must be restarted manually after reboot
-- No Administrator required
-- Prefix all PM2 commands with `npx`
+**Prerequisites:**
+- Node.js installed
+- `.env.local` file in the project root with `DB_<KEY>_PASSWORD=your-plaintext-password` — the script encrypts it automatically before building
 
-The script automatically encrypts any plaintext `DB_*_PASSWORD` values in `.env.local` using Windows DPAPI before building, so passwords are never stored in plaintext in production.
+**Install steps:**
+1. Clone the repository to the Windows machine
+2. Create `.env.local` with your database credentials
+3. Right-click `setup-windows.bat` → **Run as Administrator** (required for Option 1)
+4. Choose **[1] Install**
+5. Choose a PM2 option when prompted
 
-**PM2 commands (Option 1):**
+**PM2 Options:**
+
+| | Option 1 — Global (recommended) | Option 2 — Local via npx |
+|---|---|---|
+| PM2 install | System-wide | No global install |
+| Auto-start on boot | Yes | No — restart manually after reboot |
+| Administrator required | Yes | No |
+| PM2 commands | `pm2 <command>` | `npx pm2 <command>` |
+
+**Useful PM2 commands** (prefix with `npx` if using Option 2):
 ```
 pm2 status                         check if app is running
 pm2 logs workflow-query-app        view app logs
 pm2 restart workflow-query-app     restart the app
 pm2 stop workflow-query-app        stop the app
-```
-
-**PM2 commands (Option 2 — prefix with npx):**
-```
-npx pm2 status
-npx pm2 logs workflow-query-app
-npx pm2 restart workflow-query-app
-npx pm2 stop workflow-query-app
 ```
 
 ### Uninstalling
