@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   const dbKey = (db as string) || defaultDbKey();
   const words = ((workflowName as string) ?? "").trim().split(/\s+/).filter(Boolean);
 
-  try {
+try {
     const { pool, connect } = getPool(dbKey);
     await connect;
     const request = pool
