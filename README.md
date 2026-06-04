@@ -57,14 +57,14 @@ DB_MY_DB_PORT=1433
 Add each database as a separate entry under `DB_NAMES`:
 
 ```
-DB_NAMES=WILLIAMS_PRD,ACME_PRD
+DB_NAMES=CUSTOMER1_PRD,ACME_PRD
 
-DB_WILLIAMS_PRD_LABEL=Williams PRD
-DB_WILLIAMS_PRD_SERVER=bis-prd-iaz.ivanticloud.com
-DB_WILLIAMS_PRD_DATABASE=IAMC_Williams_PRD_NA
-DB_WILLIAMS_PRD_USER=BIP_WILLIAMS
-DB_WILLIAMS_PRD_PASSWORD=your-password
-DB_WILLIAMS_PRD_PORT=31410
+DB_CUSTOMER1_PRD_LABEL=Customer1 PRD
+DB_CUSTOMER1_PRD_SERVER=your-server.example.com
+DB_CUSTOMER1_PRD_DATABASE=IAMC_Customer1_PRD
+DB_CUSTOMER1_PRD_USER=BIP_CUSTOMER1
+DB_CUSTOMER1_PRD_PASSWORD=your-password
+DB_CUSTOMER1_PRD_PORT=1433
 
 DB_ACME_PRD_LABEL=Acme PRD
 DB_ACME_PRD_SERVER=acme-server.example.com
@@ -94,7 +94,7 @@ For production deployments on Windows, the database password should be encrypted
 Use `DB_<KEY>_PASSWORD_ENCRYPTED` in place of `DB_<KEY>_PASSWORD` for each database:
 
 ```
-DB_WILLIAMS_PRD_PASSWORD_ENCRYPTED=<encrypted value>
+DB_CUSTOMER1_PRD_PASSWORD_ENCRYPTED=<encrypted value>
 ```
 
 **If you are using `setup-windows.bat`:** encryption is handled automatically. Just put `DB_<KEY>_PASSWORD=your-plaintext-password` in `.env.local` and run the script — it will encrypt the value and replace the plaintext before building the app.
@@ -224,7 +224,7 @@ Use it to test filter changes, inspect raw results, or verify query behaviour be
 ```json
 {
   "databases": [
-    { "key": "WILLIAMS_PRD", "label": "Williams PRD" }
+    { "key": "CUSTOMER1_PRD", "label": "Customer1 PRD" }
   ]
 }
 ```
@@ -238,7 +238,7 @@ Use it to test filter changes, inspect raw results, or verify query behaviour be
   "blockType": "",
   "teamName": "",
   "status": "",
-  "db": "WILLIAMS_PRD"
+  "db": "CUSTOMER1_PRD"
 }
 ```
 
@@ -260,7 +260,7 @@ Use it to test filter changes, inspect raw results, or verify query behaviour be
 }
 ```
 
-### GET `/api/teams?db=WILLIAMS_PRD`
+### GET `/api/teams?db=CUSTOMER1_PRD`
 
 `db` defaults to the first entry in `DB_NAMES` if omitted.
 
