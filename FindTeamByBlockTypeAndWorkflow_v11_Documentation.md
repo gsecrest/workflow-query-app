@@ -1,4 +1,4 @@
-# Find Team by Block Type & Workflow — Documentation v10
+# Find Team by Block Type & Workflow — Documentation v11
 
 ## Overview
 
@@ -109,10 +109,87 @@ Workflows with `No Offering` status are included in results — previously these
 
 ---
 
+## Installation & Setup
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org) installed on the machine
+- Access to the Ivanti SQL Server database
+- A `.env.local` file in the project root (see below)
+
+### Configure .env.local
+
+The app supports one or more Ivanti database environments. Add each as a named entry under `DB_NAMES`:
+
+```
+DB_NAMES=WILLIAMS_PRD
+
+DB_WILLIAMS_PRD_LABEL=Williams PRD
+DB_WILLIAMS_PRD_SERVER=your-sql-server
+DB_WILLIAMS_PRD_DATABASE=your-database
+DB_WILLIAMS_PRD_USER=your-username
+DB_WILLIAMS_PRD_PASSWORD=your-password
+DB_WILLIAMS_PRD_PORT=1433
+```
+
+To add a second environment, append it to `DB_NAMES` (comma-separated) and add its vars:
+
+```
+DB_NAMES=WILLIAMS_PRD,ACME_PRD
+
+DB_ACME_PRD_LABEL=Acme PRD
+DB_ACME_PRD_SERVER=acme-server.example.com
+...
+```
+
+### Install and Run (Development)
+
+```bash
+npm install       # installs dependencies locally — no global install required
+npm run dev       # starts the dev server at http://localhost:3000
+```
+
+### Windows Deployment (Run in Background / Auto-start on Boot)
+
+Use `setup-windows.bat` (run as Administrator for Option 1). When prompted, choose:
+
+**Option 1 — Global install (recommended for production)**
+- Installs PM2 system-wide
+- App starts automatically on Windows boot
+- Requires Administrator
+- Use plain `pm2` commands
+
+**Option 2 — Local via npx (no global install)**
+- No system-wide install required
+- App does **not** start automatically on boot — must be restarted manually after reboot
+- No Administrator required
+- Prefix all PM2 commands with `npx`
+
+The script automatically encrypts any plaintext `DB_*_PASSWORD` values in `.env.local` using Windows DPAPI before building, so passwords are never stored in plaintext in production.
+
+**PM2 commands (Option 1):**
+```
+pm2 status                         check if app is running
+pm2 logs workflow-query-app        view app logs
+pm2 restart workflow-query-app     restart the app
+pm2 stop workflow-query-app        stop the app
+```
+
+**PM2 commands (Option 2 — prefix with npx):**
+```
+npx pm2 status
+npx pm2 logs workflow-query-app
+npx pm2 restart workflow-query-app
+npx pm2 stop workflow-query-app
+```
+
+---
+
 ## Version History
 
 | Version | Changes |
 |---|---|
-| v10 | SQL query performance optimizations: BlockType computed once per block (eliminates duplicate XPath evaluation); QuickAction definitions pre-materialised per unique QAID (eliminates repeated ntext casts); OwnerTeam extraction uses a single combined CHARINDEX search (more precise, fewer operations); WorkflowOffering scoped to matched workflows only. PM2 installation documented with global and local (npx) options. |
+| v11 | Added Installation & Setup section covering .env.local multi-DB format, dev server setup, and Windows deployment with Option 1 (global PM2, auto-start on boot) and Option 2 (local via npx). setup-windows.bat updated to prompt for install option and handle new multi-DB password encryption. |
+| v10 | SQL query performance optimizations: BlockType computed once per block; QuickAction definitions pre-materialised per unique QAID; OwnerTeam extraction uses single combined CHARINDEX; WorkflowOffering scoped to matched workflows only. |
 | v9 | Multi-database support; Extended Task (QA) sub-row display; block type labels (Task, Extended Task, Insert Child, Create Object, Get Approval, Update, Quick Action); multi-word workflow name search; No Offering workflows now shown; fixed QuickAction OwnerTeam resolution for long `ntext` definitions; `vote` and `vote0007` merged under Get Approval filter |
 | v8 | Previous version |
