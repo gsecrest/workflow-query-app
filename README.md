@@ -19,14 +19,15 @@ Searches across workflow definitions and returns matching blocks with their team
 
 | Value | Display Label | Description |
 |---|---|---|
-| `task` | task | Standard task block |
+| `task` | Task | Standard task block |
 | `advancedtask` | Extended Task | Advanced task block (teamblock team assignment) |
-| `quickaction` | Quick Action | Quick Action block, or the OwnerTeam set via QuickAction on an Extended Task block |
-| `update` | update | Update object block |
-| `create` | create | Create block |
+| `advancedtask_qa` | Extended Task (QA) | OwnerTeam set via QuickAction on an Extended Task block |
+| `quickaction` | Quick Action | Standalone Quick Action block |
+| `update` | Update | Update object block |
+| `create` | Insert Child | Creates a child record (older block type) |
 | `createnew0002` | Create Object | Create object block (QuickAction-based) |
-| `notification` | notification | Notification block |
-| `vote0007` / `vote` | vote0007 / vote | Approval block |
+| `vote0007` | Get Approval | Approval block |
+| `vote` | Get Approval | Approval block — older block type, functionally equivalent to `vote0007` |
 
 > **Extended Task (advancedtask) team sources:** An Extended Task block can have two team assignments — a task-level teamblock and an OwnerTeam set via its QuickAction. Both are returned as separate rows: the teamblock team shows as `advancedtask`, and the QuickAction OwnerTeam shows as `quickaction`.
 
