@@ -83,6 +83,8 @@ npm install
 npm run dev
 ```
 
+> **Note:** `npm install` installs all dependencies locally into `node_modules` — no global installation is required for the app itself.
+
 Open [http://localhost:3000](http://localhost:3000).
 
 ## Encrypting the Database Password (Windows DPAPI)
@@ -129,7 +131,26 @@ To run the app in the background on Windows without keeping a terminal open, use
 
 The app will be available at [http://localhost:3000](http://localhost:3000) and will start automatically after every reboot.
 
-**Useful PM2 commands:**
+### PM2 Installation Options
+
+PM2 can be installed **globally** (recommended for production) or run **locally via npx** (no global install needed).
+
+**Option A — Global install (recommended for production/run-on-boot):**
+```bash
+npm install -g pm2 pm2-windows-startup
+pm2 start ecosystem.config.js
+pm2 save
+```
+Use plain `pm2` commands anywhere on the machine.
+
+**Option B — Local via npx (no global install):**
+```bash
+npx pm2 start ecosystem.config.js
+npx pm2 save
+```
+Prefix every `pm2` command with `npx`. Note: the Windows startup hook (`pm2-windows-startup`) works more reliably with a global install — use Option A if you need the app to start automatically on boot.
+
+**Useful PM2 commands** (prefix with `npx` if using Option B):
 ```bash
 pm2 status                              # check if the app is running
 pm2 logs workflow-query-app             # view app logs
