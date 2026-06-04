@@ -183,6 +183,25 @@ npx pm2 restart workflow-query-app
 npx pm2 stop workflow-query-app
 ```
 
+### Uninstalling
+
+**Option 1 — Global install:**
+```
+pm2 delete workflow-query-app
+npx pm2-windows-startup uninstall
+pm2 save
+npm uninstall -g pm2 pm2-windows-startup   (optional)
+```
+
+**Option 2 — Local via npx:**
+```
+npx pm2 delete workflow-query-app
+npx pm2 save
+```
+No startup entry was created, so no further cleanup is needed.
+
+In both cases, delete the app folder to remove the app and `.env.local` credentials.
+
 ---
 
 ## Version History
