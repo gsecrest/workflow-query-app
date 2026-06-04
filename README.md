@@ -118,41 +118,36 @@ The app decrypts passwords at startup via `lib/db.ts` using `spawnSync` and Powe
 
 ## Windows Deployment (no terminal required)
 
-To run the app in the background on Windows without keeping a terminal open, use the included `setup-windows.bat` script. When launched it presents a main menu — choose **Install** or **Uninstall**. It builds the app for production, encrypts any plaintext passwords in `.env.local`, and configures PM2.
+Use `setup-windows.bat` to install, configure, or uninstall the app on Windows without keeping a terminal open. When launched it shows a main menu:
+
+```
+[1] Install
+[2] Uninstall
+```
+
+### Installing
 
 **Prerequisites:**
 - [Node.js](https://nodejs.org) installed
-- `.env.local` file created in the project root with `DB_<KEY>_PASSWORD=your-plaintext-password` — **the script will not proceed without it, and will encrypt the password automatically before building**
+- `.env.local` file in the project root with database credentials using `DB_<KEY>_PASSWORD=your-plaintext-password` — the script encrypts the password automatically before building
 
 **Steps:**
 1. Clone the repository to the Windows machine
-2. Create `.env.local` with your database credentials (use `DB_<KEY>_PASSWORD=` — the script encrypts it)
-3. Right-click `setup-windows.bat` and select **Run as Administrator** (required for Option 1 / global install)
-4. Choose **[1] Install** from the main menu
-5. Choose PM2 Option 1 (global) or Option 2 (local/npx)
+2. Create `.env.local` with your database credentials
+3. Right-click `setup-windows.bat` and select **Run as Administrator** (required for Option 1)
+4. Choose **[1] Install**
+5. Choose a PM2 option when prompted (see below)
 
-The app will be available at [http://localhost:3000](http://localhost:3000).
+### PM2 Options
 
-### PM2 Installation Options
+| | Option 1 — Global (recommended) | Option 2 — Local via npx |
+|---|---|---|
+| **PM2 install** | System-wide (`npm install -g`) | No global install |
+| **Auto-start on boot** | Yes | No — must restart after reboot |
+| **Administrator required** | Yes | No |
+| **PM2 commands** | `pm2 <command>` | `npx pm2 <command>` |
 
-PM2 can be installed **globally** (recommended for production) or run **locally via npx** (no global install needed).
-
-**Option A — Global install (recommended for production/run-on-boot):**
-```bash
-npm install -g pm2 pm2-windows-startup
-pm2 start ecosystem.config.js
-pm2 save
-```
-Use plain `pm2` commands anywhere on the machine.
-
-**Option B — Local via npx (no global install):**
-```bash
-npx pm2 start ecosystem.config.js
-npx pm2 save
-```
-Prefix every `pm2` command with `npx`. Note: the Windows startup hook (`pm2-windows-startup`) works more reliably with a global install — use Option A if you need the app to start automatically on boot.
-
-**Useful PM2 commands** (prefix with `npx` if using Option B):
+**Useful PM2 commands** (prefix with `npx` if using Option 2):
 ```bash
 pm2 status                              # check if the app is running
 pm2 logs workflow-query-app             # view app logs
