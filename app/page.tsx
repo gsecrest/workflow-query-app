@@ -140,7 +140,7 @@ export default function Home() {
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">
-            Find Team by Block Type &amp; Workflow
+            RO Workflow Query
           </h1>
           <p className="text-sm text-gray-500 mt-1">
             Leave any field blank to search across all values.

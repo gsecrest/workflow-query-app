@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Workflow Query App",
-  description: "Find team block ownership in Ivanti workflows",
+  title: "RO Workflow Query",
+  description: "Quickly identify which team owns each request offering so you can manually correct team assignments without hunting through workflows.",
 };
 
 export default function RootLayout({
