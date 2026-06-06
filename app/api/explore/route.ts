@@ -202,6 +202,181 @@ const QUERIES: Record<string, { label: string; sql: string }> = {
       ORDER BY srt.Name, p.SequenceNum
     `,
   },
+  bo_workflow_types: {
+    label: "All distinct workflow type names (non-RO)",
+    sql: `
+      SELECT DISTINCT
+        wt.Name                         AS WorkflowTypeName,
+        COUNT(DISTINCT wf.RecID)        AS VersionCount,
+        MAX(TRY_CAST(wf.DefVersion AS INT)) AS LatestVersion
+      FROM frs_def_workflow_type wt WITH (NOLOCK)
+      JOIN frs_def_workflow_definition wf WITH (NOLOCK)
+        ON wf.WorkflowTypeLink_RecID = wt.RecID
+      WHERE wt.Name NOT LIKE '%form'
+        AND wt.Name NOT LIKE '%backup%'
+      GROUP BY wt.Name
+      ORDER BY wt.Name
+    `,
+  },
+  bo_workflow_sample: {
+    label: "Sample workflow type names — all patterns",
+    sql: `
+      SELECT TOP 50
+        wt.Name                         AS WorkflowTypeName,
+        COUNT(DISTINCT wf.RecID)        AS Versions
+      FROM frs_def_workflow_type wt WITH (NOLOCK)
+      JOIN frs_def_workflow_definition wf WITH (NOLOCK)
+        ON wf.WorkflowTypeLink_RecID = wt.RecID
+      GROUP BY wt.Name
+      ORDER BY wt.Name
+    `,
+  },
+  bo_block_types: {
+    label: "Distinct block types across all non-RO workflows (top 30)",
+    sql: `
+      SELECT TOP 30
+        bt.BlockType,
+        COUNT(*) AS OccurrenceCount
+      FROM (
+        SELECT TOP 5000
+          wt.Name AS WorkflowName,
+          CAST(
+            REPLACE(REPLACE(CAST(wf.Details AS nvarchar(max)),
+              '<?xml version=''1.0'' encoding=''utf-16le'' ?>', ''),
+              ' xmlns=''http://frontrange.com/saas/workflow/Bpe_workflow.xsd''', '')
+          AS XML) AS XmlData
+        FROM frs_def_workflow_type wt WITH (NOLOCK)
+        JOIN frs_def_workflow_definition wf WITH (NOLOCK)
+          ON wf.WorkflowTypeLink_RecID = wt.RecID
+        WHERE wt.Name NOT LIKE '%form'
+          AND wt.Name NOT LIKE '%backup%'
+          AND TRY_CAST(wf.Details AS nvarchar(max)) IS NOT NULL
+      ) w
+      CROSS APPLY w.XmlData.nodes('/scenario/blocks/block') b(block)
+      CROSS APPLY (VALUES (LTRIM(RTRIM(b.block.value('(type)[1]', 'nvarchar(50)'))))) bt(BlockType)
+      WHERE bt.BlockType IS NOT NULL AND bt.BlockType <> ''
+      GROUP BY bt.BlockType
+      ORDER BY OccurrenceCount DESC
+    `,
+  },
+  bo_workflow_link_tables: {
+    label: "Tables that may link business objects to workflows",
+    sql: `
+      SELECT TABLE_NAME
+      FROM INFORMATION_SCHEMA.TABLES
+      WHERE TABLE_TYPE = 'BASE TABLE'
+        AND (
+          TABLE_NAME LIKE '%Workflow%'
+          OR TABLE_NAME LIKE '%StatusWork%'
+          OR TABLE_NAME LIKE '%WorkFlow%'
+        )
+        AND TABLE_NAME NOT LIKE '%frs_def_workflow%'
+        AND TABLE_NAME NOT LIKE '%frs_ops_workflow%'
+        AND TABLE_NAME NOT LIKE '%frs_data_workflow%'
+        AND TABLE_NAME NOT LIKE '%backup%'
+      ORDER BY TABLE_NAME
+    `,
+  },
+  bo_status_workflow_columns: {
+    label: "Columns in ChangeStatusWorkFlow (sample BO workflow link table)",
+    sql: `
+      SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'ChangeStatusWorkFlow'
+      ORDER BY ORDINAL_POSITION
+    `,
+  },
+  bo_status_workflow_sample: {
+    label: "Sample rows from ChangeStatusWorkFlow",
+    sql: `
+      SELECT TOP 10 * FROM ChangeStatusWorkFlow WITH (NOLOCK)
+    `,
+  },
+  bo_workflow_type_columns: {
+    label: "Columns in frs_def_workflow_type",
+    sql: `
+      SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_NAME = 'frs_def_workflow_type'
+      ORDER BY ORDINAL_POSITION
+    `,
+  },
+  bo_metatype_link: {
+    label: "frs_def_metatypes — business object definitions",
+    sql: `
+      SELECT TOP 20 *
+      FROM frs_def_metatypes WITH (NOLOCK)
+      ORDER BY Name
+    `,
+  },
+  bo_workflow_type_sample: {
+    label: "All columns in frs_def_workflow_type (top 20 non-form)",
+    sql: `
+      SELECT TOP 20 *
+      FROM frs_def_workflow_type WITH (NOLOCK)
+      WHERE Name NOT LIKE '%form'
+        AND Name NOT LIKE '%backup%'
+      ORDER BY Name
+    `,
+  },
+  bo_sample_block_xml: {
+    label: "Sample block XML from a BO workflow (Change Approval)",
+    sql: `
+      SELECT TOP 1
+        wt.Name AS WorkflowName,
+        wf.DefVersion,
+        CAST(
+          REPLACE(REPLACE(CAST(wf.Details AS nvarchar(max)),
+            '<?xml version=''1.0'' encoding=''utf-16le'' ?>', ''),
+            ' xmlns=''http://frontrange.com/saas/workflow/Bpe_workflow.xsd''', '')
+        AS XML).query('/scenario/blocks/block[1]') AS FirstBlockXml
+      FROM frs_def_workflow_type wt WITH (NOLOCK)
+      JOIN frs_def_workflow_definition wf WITH (NOLOCK)
+        ON wf.WorkflowTypeLink_RecID = wt.RecID
+      WHERE wt.Name = 'Change Approval Workflow'
+      ORDER BY TRY_CAST(wf.DefVersion AS INT) DESC
+    `,
+  },
+  bo_object_types: {
+    label: "Distinct ObjectType values in frs_def_workflow_type",
+    sql: `
+      SELECT
+        ObjectType,
+        COUNT(DISTINCT wt.RecId) AS WorkflowCount
+      FROM frs_def_workflow_type wt WITH (NOLOCK)
+      WHERE ObjectType IS NOT NULL AND ObjectType <> ''
+      GROUP BY ObjectType
+      ORDER BY WorkflowCount DESC
+    `,
+  },
+  bo_block_types_detail: {
+    label: "Block types with counts across all BO workflows",
+    sql: `
+      SELECT
+        bt.BlockType,
+        COUNT(*)        AS BlockCount,
+        COUNT(DISTINCT w.WorkflowName) AS WorkflowCount
+      FROM (
+        SELECT TOP 3000
+          wt.Name AS WorkflowName,
+          CAST(
+            REPLACE(REPLACE(CAST(wf.Details AS nvarchar(max)),
+              '<?xml version=''1.0'' encoding=''utf-16le'' ?>', ''),
+              ' xmlns=''http://frontrange.com/saas/workflow/Bpe_workflow.xsd''', '')
+          AS XML) AS XmlData
+        FROM frs_def_workflow_type wt WITH (NOLOCK)
+        JOIN frs_def_workflow_definition wf WITH (NOLOCK)
+          ON wf.WorkflowTypeLink_RecID = wt.RecID
+        WHERE wt.Name NOT LIKE '%form'
+          AND wt.Name NOT LIKE '%backup%'
+      ) w
+      CROSS APPLY w.XmlData.nodes('/scenario/blocks/block') b(block)
+      CROSS APPLY (VALUES (LTRIM(RTRIM(b.block.value('(type)[1]', 'nvarchar(50)'))))) bt(BlockType)
+      WHERE bt.BlockType IS NOT NULL AND bt.BlockType <> ''
+      GROUP BY bt.BlockType
+      ORDER BY BlockCount DESC
+    `,
+  },
 };
 
 export async function GET(req: NextRequest) {
