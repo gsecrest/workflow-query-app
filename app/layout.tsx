@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import TopNav from "./components/TopNav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RO Workflow Query",
-  description: "Quickly identify which team owns each request offering so you can manually correct team assignments without hunting through workflows.",
+  title: "Ivanti Workflow Tools",
+  description: "Query RO and BO workflow team assignments and attributes.",
 };
 
 export default function RootLayout({
@@ -27,7 +28,10 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <TopNav />
+        {children}
+      </body>
     </html>
   );
 }
